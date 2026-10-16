@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KinoBot Player</title>
+<style>
+  body { margin:0; background:#000; color:#fff; font-family:system-ui,-apple-system,sans-serif; }
+  #player-wrap { max-width:100vw; margin:0 auto; }
+  video { width:100%; height:auto; display:block; background:#000; max-height:80vh; }
+  .info { padding:16px; max-width:900px; margin:0 auto; }
+  .info h1 { font-size:18px; margin:0 0 8px; }
+  .info p { font-size:13px; color:#aaa; margin:4px 0; word-break:break-all; }
+  .btn {
+    display:inline-block; padding:10px 16px; margin:8px 8px 0 0;
+    background:#2b6cff; color:#fff; border-radius:8px; border:0;
+    text-decoration:none; font-size:14px; cursor:pointer;
+  }
+  .btn.secondary { background:#333; }
+  .error { color:#ff5c5c; padding:16px; }
+  .note { font-size:12px; color:#888; margin-top:12px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="player-wrap">
+  <video id="video" controls playsinline preload="metadata"></video>
+</div>
+<div class="info">
+  <h1 id="title">Загрузка…</h1>
+  <p id="url"></p>
+  <button id="copy" class="btn">📋 Скопировать HLS-ссылку</button>
+  <a id="open" class="btn secondary" href="#" target="_blank" rel="noopener">🔗 Открыть чистый .m3u8</a>
+  <div class="note">
+    <b>Как скачать:</b> скопируй HLS-ссылку и открой её в VLC, MPV,
+    MX Player или используй ffmpeg:<br>
+    <code>ffmpeg -i "URL" -c copy video.mp4</code>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script>
+(function(){
+  const params = new URLSearchParams(location.search);
+  const src = params.get('url');
+  const title = params.get('title') || 'KinoBot Player';
+  const video = document.getElementById('video');
+  const titleEl = document.getElementById('title');
+  const urlEl = document.getElementById('url');
+  const openA = document.getElementById('open');
+  const copyBtn = document.getElementById('copy');
+
+  titleEl.textContent = title;
+  document.title = title;
+
+  if (!src) {
+    titleEl.textContent = '❌ Не передана ссылка на видео';
+    return;
+  }
+  urlEl.textContent = src;
+  openA.href = src;
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(src);
+      copyBtn.textContent = '✅ Скопировано';
+    } catch (e) {
+      copyBtn.textContent = '❌ Не удалось';
+    }
+    setTimeout(() => copyBtn.textContent = '📋 Скопировать HLS-ссылку', 1500);
+  });
+
+  // Safari / iOS — нативный HLS
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+  } else if (window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.ERROR, function(_, data) {
+      if (data.fatal) {
+        titleEl.textContent = '⚠️ Ошибка воспроизведения: ' + data.type;
+      }
+    });
+  } else {
+    titleEl.textContent = '❌ Браузер не поддерживает HLS';
+  }
+})();
+</script>
+</body>
+</html>
