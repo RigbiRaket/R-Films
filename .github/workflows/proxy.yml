@@ -12,7 +12,11 @@ jobs:
     steps:
       - name: Fetch URL
         run: |
-          curl -s -L "${{ github.event.inputs.target_url }}" -o response.json
+          curl -s -L "${{ github.event.inputs.target_url }}" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Referer: https://animego.me/" \
+            -H "Origin: https://animego.me" \
+            -o response.json
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
