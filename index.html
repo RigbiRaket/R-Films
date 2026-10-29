@@ -60,6 +60,17 @@
     text-overflow: ellipsis;
     max-width: 55vw;
   }
+  .source-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: #ffffff10;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
   .player-wrap {
     position: relative;
     width: 100%;
@@ -128,13 +139,14 @@
     color: var(--muted);
   }
   .error h2 { color: var(--text); font-size: 17px; margin: 0 0 8px; }
-  .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 500px; }
+  .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 540px; }
   .error code {
     background: #ffffff10;
     padding: 2px 6px;
     border-radius: 5px;
     font-size: 12px;
     color: #c8cbd5;
+    word-break: break-all;
   }
   .hidden { display: none !important; }
   @media (max-width: 760px) {
@@ -175,21 +187,25 @@
   <div id="errorContainer" class="error hidden">
     <h2 id="errorTitle">Не передана ссылка на видео</h2>
     <p id="errorMessage">
-      Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер Kodik,
+      Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер,
       например: <code>?embed=//kodikplayer.com/video/112243/.../720p</code>
+      или <code>?embed=//miyagi-as.stravers.live/...</code>
     </p>
   </div>
 
   <div id="infoContainer" class="info hidden">
-    <h1 id="pageTitle">Видео</h1>
-    <div class="meta" id="pageMeta">Плеер Kodik</div>
+    <h1 id="pageTitle">Видео <span class="source-badge" id="sourceBadge"></span></h1>
+    <div class="meta" id="pageMeta"></div>
     <div class="actions">
       <a id="openExternal" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">
         ↗ Открыть в новой вкладке
       </a>
-      <a id="downloadLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">
+      <a id="downloadLink" class="btn hidden" href="#" target="_blank" rel="noopener noreferrer">
         ⬇ Скачать MP4
       </a>
+      <button class="btn" id="copyEmbed" type="button">
+        📋 Скопировать embed-ссылку
+      </button>
       <button class="btn" id="copyPage" type="button">
         🔗 Скопировать ссылку на страницу
       </button>
@@ -200,6 +216,32 @@
 <script>
 (() => {
   'use strict';
+
+  // ============================================================
+  //  БЕЛЫЙ СПИСОК ДОМЕНОВ ПЛЕЕРОВ
+  // ============================================================
+  // Все домены, чьи iframe разрешено встраивать.
+  // Сравнение идёт по hostname: либо точное совпадение,
+  // либо hostname заканчивается на "." + домен (для поддоменов).
+  const ALLOWED_PLAYERS = [
+    { domain: 'kodikplayer.com',  label: 'Kodik'  },
+    { domain: 'kodik.biz',        label: 'Kodik'  },  // резервный домен Kodik
+    { domain: 'stravers.live',    label: 'Alloha' },  // основной домен iframe Alloha
+    { domain: 'allohamovies.com', label: 'Alloha' },  // возможный запасной домен
+  ];
+
+  // Возвращает объект {label, domain} если домен разрешён, иначе null
+  function resolvePlayer(hostname) {
+    const h = hostname.toLowerCase();
+    for (const p of ALLOWED_PLAYERS) {
+      if (h === p.domain || h.endsWith('.' + p.domain)) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
 
   const params = new URLSearchParams(location.search);
   const rawEmbed = (params.get('embed') || '').trim();
@@ -215,10 +257,10 @@
   const pageTitle = document.getElementById('pageTitle');
   const pageMeta = document.getElementById('pageMeta');
   const topCaption = document.getElementById('topCaption');
+  const sourceBadge = document.getElementById('sourceBadge');
   const openExternal = document.getElementById('openExternal');
   const downloadLink = document.getElementById('downloadLink');
 
-  // Приводим протокол-относительную ссылку к абсолютной
   function normalizeUrl(url) {
     if (!url) return '';
     if (url.startsWith('//')) return 'https:' + url;
@@ -234,12 +276,12 @@
     playerContainer.classList.add('hidden');
   }
 
-  // Нет ссылки на плеер — показываем подсказку
   if (!rawEmbed) {
     showError(
       'Не передана ссылка на видео',
-      'Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер Kodik, ' +
-      'например: <code>?embed=//kodikplayer.com/video/112243/.../720p</code>'
+      'Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер, ' +
+      'например: <code>?embed=//kodikplayer.com/video/112243/.../720p</code> ' +
+      'или <code>?embed=//miyagi-as.stravers.live/...</code>'
     );
     return;
   }
@@ -248,7 +290,6 @@
   const downloadUrl = rawDownload ? normalizeUrl(rawDownload) : '';
   const title = rawTitle || 'R·Films Player';
 
-  // Проверяем, что ссылка на самом деле ведёт на kodikplayer.com
   let parsed;
   try {
     parsed = new URL(embedUrl);
@@ -257,30 +298,32 @@
     return;
   }
 
-  if (!parsed.hostname.endsWith('kodikplayer.com')) {
+  const player = resolvePlayer(parsed.hostname);
+  if (!player) {
     showError(
       'Некорректный источник',
-      'Плеер поддерживает только ссылки с домена <code>kodikplayer.com</code>. ' +
-      'Получен: <code>' + parsed.hostname + '</code>.'
+      'Этот плеер поддерживает только известные домены плееров ' +
+      '(<code>kodikplayer.com</code>, <code>*.stravers.live</code> и др.). ' +
+      'Получен: <code>' + escapeHtml(parsed.hostname) + '</code>. ' +
+      'Если это новый балансер — добавьте его домен в массив ' +
+      '<code>ALLOWED_PLAYERS</code> в коде страницы.'
     );
     return;
   }
 
-  // Отображаем плеер в iframe
+  // Отображаем плеер
   playerFrame.src = embedUrl;
   playerContainer.classList.remove('hidden');
   infoContainer.classList.remove('hidden');
 
-  // Заголовок и подпись
-  pageTitle.textContent = title;
+  pageTitle.childNodes[0].nodeValue = title + ' ';
+  sourceBadge.textContent = player.label;
   topCaption.textContent = title;
   document.title = title + ' · R·Films Player';
-  pageMeta.textContent = 'Плеер Kodik · Источник: ' + parsed.hostname;
+  pageMeta.textContent = 'Источник: ' + player.label + ' · ' + parsed.hostname;
 
-  // Кнопка «Открыть в новой вкладке»
   openExternal.href = embedUrl;
 
-  // Кнопка «Скачать MP4» — прячем, если ссылки нет
   if (downloadUrl) {
     downloadLink.href = downloadUrl;
     downloadLink.classList.remove('hidden');
@@ -288,9 +331,12 @@
     downloadLink.classList.add('hidden');
   }
 
-  // Копирование ссылки на страницу
-  document.getElementById('copyPage').addEventListener('click', async () => {
-    await copyToClipboard(location.href, 'Ссылка на страницу скопирована');
+  document.getElementById('copyEmbed').addEventListener('click', () => {
+    copyToClipboard(embedUrl, 'Embed-ссылка скопирована');
+  });
+
+  document.getElementById('copyPage').addEventListener('click', () => {
+    copyToClipboard(location.href, 'Ссылка на страницу скопирована');
   });
 
   async function copyToClipboard(text, successMsg) {
@@ -339,6 +385,14 @@
       toast.style.opacity = '0';
       setTimeout(() => toast.remove(), 220);
     }, 1800);
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 })();
 </script>
