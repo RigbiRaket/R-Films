@@ -1,0 +1,34 @@
+name: Test CDNvideoHub API
+
+on:
+  workflow_dispatch: # Позволяет запускать workflow вручную кнопкой в интерфейсе GitHub
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Runner IP Address
+        run: |
+          echo "🌍 Текущий IP-адрес раннера:"
+          curl -s https://api.ipify.org
+          echo ""
+
+      - name: Test CDNvideoHub API Request
+        run: |
+          echo "📡 Отправка запроса к CDNvideoHub..."
+          # Делаем запрос к API и выводим ответ. 
+          # Используем -s (тихий режим), -w (вывод HTTP-кода), -o (сохранение в файл)
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" "https://plapi.cdnvideohub.com/api/v1/player/sv/playlist?pub=747&aggr=mali&id=435")
+          
+          echo "🔢 HTTP Status Code: $HTTP_CODE"
+          echo "📄 Ответ сервера:"
+          cat response.json
+          
+          # Проверяем, вернул ли сервер ошибку
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "❌ Ошибка: Сервер вернул код $HTTP_CODE вместо 200."
+            exit 1
+          fi
