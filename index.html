@@ -190,9 +190,6 @@
       <a id="downloadLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">
         ⬇ Скачать MP4
       </a>
-      <button class="btn" id="copyEmbed" type="button">
-        📋 Скопировать embed-ссылку
-      </button>
       <button class="btn" id="copyPage" type="button">
         🔗 Скопировать ссылку на страницу
       </button>
@@ -290,11 +287,6 @@
   } else {
     downloadLink.classList.add('hidden');
   }
-
-  // Копирование embed-ссылки
-  document.getElementById('copyEmbed').addEventListener('click', async () => {
-    await copyToClipboard(embedUrl, 'Embed-ссылка скопирована');
-  });
 
   // Копирование ссылки на страницу
   document.getElementById('copyPage').addEventListener('click', async () => {
