@@ -12,10 +12,26 @@ jobs:
     steps:
       - name: Fetch URL
         run: |
+          # Универсальная проверка: куда мы стучимся?
+          if [[ "${{ github.event.inputs.target_url }}" == *"plapi.cdnvideohub.com"* ]]; then
+            echo "📡 Проксирование CVH API (AnimeGO)"
+            REFERER="https://animego.me/"
+            ORIGIN="https://animego.me"
+          else
+            echo "🎬 Проксирование VK CDN (okcdn.ru)"
+            REFERER="https://vkvideo.ru/"
+            ORIGIN="https://vkvideo.ru"
+          fi
+
           curl -s -L "${{ github.event.inputs.target_url }}" \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            -H "Referer: https://animego.me/" \
-            -H "Origin: https://animego.me" \
+            -H "Referer: $REFERER" \
+            -H "Origin: $ORIGIN" \
+            -H "Accept: */*" \
+            -H "Accept-Language: ru-RU,ru;q=0.9,en;q=0.8" \
+            -H "Sec-Fetch-Dest: empty" \
+            -H "Sec-Fetch-Mode: cors" \
+            -H "Sec-Fetch-Site: cross-site" \
             -o response.json
       - name: Upload result
         uses: actions/upload-artifact@v4
