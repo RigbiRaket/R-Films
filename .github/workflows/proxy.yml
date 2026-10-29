@@ -1,0 +1,20 @@
+name: Proxy Request
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL to fetch'
+        required: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch URL
+        run: |
+          curl -s -L "${{ github.event.inputs.target_url }}" -o response.json
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-result
+          path: response.json
