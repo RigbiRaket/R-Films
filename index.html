@@ -4,202 +4,516 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>R·Films Player</title>
+<title>R·Films</title>
 <style>
   :root {
     color-scheme: dark;
-    --bg: #08090c; --panel: #14161c; --line: #ffffff18;
-    --text: #f5f6f8; --muted: #a3a8b4; --accent: #6b8cff;
+    --bg: #08090c;
+    --text: #f5f6f8;
+    --muted: #a3a8b4;
+    --accent: #6b8cff;
   }
   * { box-sizing: border-box; }
   html, body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
     font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  button { font-family: inherit; }
+  .hidden { display: none !important; }
+
   .page { max-width: 1480px; margin: 0 auto; padding: 18px 22px 26px; }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
-  .brand { font-weight: 760; font-size: 15px; display: flex; gap: 9px; align-items: center; }
-  .brand-mark {
-    width: 26px; height: 26px; display: grid; place-items: center;
-    border-radius: 8px; background: linear-gradient(135deg, #7b97ff, #4467d8);
-    box-shadow: 0 3px 12px #4c6fff55;
-  }
-  .brand-mark svg { width: 15px; height: 15px; }
-  .caption { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55vw; }
-  .source-badge {
-    display: inline-block; margin-left: 8px; padding: 2px 7px;
-    border-radius: 5px; background: #ffffff10; color: var(--muted);
-    font-size: 11px; font-weight: 600; vertical-align: middle;
-  }
 
-  .manual-input { display: flex; gap: 8px; max-width: 1380px; margin: 0 auto 14px; padding: 0 2px; }
-  .manual-input input {
-    flex: 1; min-width: 0; background: #15171d; border: 1px solid #ffffff1b;
-    border-radius: 8px; padding: 10px 12px; color: var(--text);
-    font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s;
+  /* ====== Top bar ====== */
+  .top-section { max-width: 1380px; margin: 0 auto; }
+
+  .brand {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 15px; letter-spacing: -0.005em;
+    padding: 8px 0 6px; user-select: none;
   }
-  .manual-input input:focus { border-color: var(--accent); }
-  .manual-input input::placeholder { color: #6b7280; }
-  .manual-input button {
+  .brand-icon { width: 22px; height: 22px; color: var(--accent); }
+
+  /* Collapsible input */
+  .input-wrapper {
+    overflow: hidden;
+    max-height: 80px;
+    transition: max-height .25s cubic-bezier(.4,0,.2,1),
+                opacity .2s ease,
+                margin .25s cubic-bezier(.4,0,.2,1);
+    margin-bottom: 14px;
+  }
+  .input-wrapper.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    pointer-events: none;
+  }
+  .top-section:hover .input-wrapper.collapsed,
+  .input-wrapper.collapsed:focus-within {
+    max-height: 80px;
+    opacity: 1;
+    margin-bottom: 14px;
+    pointer-events: auto;
+  }
+  .input-inner { display: flex; gap: 8px; padding: 2px; }
+  .input-inner input {
+    flex: 1; min-width: 0;
+    background: #15171d;
+    border: 1px solid #ffffff1b;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font: inherit; font-size: 13px; outline: none;
+    transition: border-color .15s;
+  }
+  .input-inner input:focus { border-color: var(--accent); }
+  .input-inner button {
     background: var(--accent); border: none; border-radius: 8px;
-    padding: 10px 16px; color: white; font-size: 13px; font-weight: 600;
-    cursor: pointer; white-space: nowrap; transition: background .15s;
+    padding: 10px 20px; color: #fff; font-weight: 600; font-size: 13px;
+    cursor: pointer; transition: filter .15s;
   }
-  .manual-input button:hover { background: #7b97ff; }
+  .input-inner button:hover { filter: brightness(1.1); }
 
-  .player-wrap {
+  /* ====== Errors ====== */
+  .error-container {
+    max-width: 1380px; margin: 20px auto; padding: 30px 20px;
+    text-align: center; color: var(--muted);
+  }
+  .error-container h2 { color: var(--text); font-size: 16px; margin: 0 0 8px; }
+  .error-container p { font-size: 13px; margin: 0; }
+
+  /* ====== Player ====== */
+  .player-container {
     position: relative; width: 100%; max-width: 1380px; margin: 0 auto;
-    background: #000; aspect-ratio: 16/9; min-height: 240px;
-    max-height: calc(100vh - 120px); overflow: hidden;
-    border-radius: 14px; box-shadow: 0 18px 60px #0008;
+    background: #000; aspect-ratio: 16/9; border-radius: 12px;
+    overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.4);
   }
-  .player-wrap iframe, .player-wrap video { display: block; width: 100%; height: 100%; border: 0; background: #000; }
-  .player-wrap video { object-fit: contain; }
+  .player-container iframe,
+  .player-container video {
+    display: block; width: 100%; height: 100%; border: 0; background: #000;
+  }
+  .player-container video { object-fit: contain; }
 
-  /* ---------- Quality selector ---------- */
-  .quality-selector { position: absolute; top: 12px; right: 12px; z-index: 4; }
-  .quality-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: #000000aa; backdrop-filter: blur(8px);
-    border: 1px solid #ffffff26; border-radius: 7px;
-    padding: 6px 11px; color: #fff; font: 600 12px/1 inherit;
-    cursor: pointer; user-select: none; transition: background .15s, border-color .15s;
-  }
-  .quality-btn:hover { background: #000000cc; border-color: #ffffff40; }
-  .quality-btn svg { width: 13px; height: 13px; opacity: .8; }
-  .quality-menu {
-    position: absolute; top: calc(100% + 6px); right: 0;
-    background: #14161cf2; backdrop-filter: blur(10px);
-    border: 1px solid #ffffff22; border-radius: 9px;
-    overflow: hidden; min-width: 118px;
-    box-shadow: 0 10px 30px #000a; padding: 4px;
-    max-height: 60vh; overflow-y: auto;
-  }
-  .quality-menu button {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 8px; width: 100%; text-align: left; padding: 8px 11px;
-    background: none; border: none; border-radius: 5px;
-    color: #e5e7eb; font: 500 12px/1 inherit; cursor: pointer; white-space: nowrap;
-  }
-  .quality-menu button:hover { background: #ffffff12; }
-  .quality-menu button.active { color: var(--accent); background: #ffffff08; }
-  .quality-menu button.active::after { content: "✓"; font-size: 11px; margin-left: auto; opacity: .9; }
-
-  .loading {
+  /* Loading */
+  .loading-overlay {
     position: absolute; inset: 0; display: grid; place-items: center;
-    background: #000000cc; color: var(--muted); font-size: 13px;
-    z-index: 5; pointer-events: none; opacity: 0; transition: opacity .2s;
+    background: rgba(0,0,0,.55); z-index: 8; pointer-events: none;
   }
-  .loading.active { opacity: 1; pointer-events: auto; }
-  .loading .spinner {
-    width: 32px; height: 32px; border: 3px solid #ffffff22;
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin-bottom: 10px;
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .75s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loading .content { display: flex; flex-direction: column; align-items: center; }
-  .loading .sub { font-size: 11px; color: #6b7280; margin-top: 4px; }
 
-  .info { max-width: 1380px; margin: 0 auto; padding: 18px 2px 0; }
-  .info h1 { font-size: 18px; line-height: 1.35; margin: 0 0 8px; font-weight: 700; overflow-wrap: anywhere; }
-  .info .meta { font-size: 12px; color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    border: 1px solid #ffffff1b; background: #15171d; border-radius: 8px;
-    padding: 9px 12px; cursor: pointer; color: #d7d9e0;
-    font-size: 12px; text-decoration: none; white-space: nowrap; transition: background .15s;
+  /* Speed badge */
+  .speed-badge {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+    color: #fff; font-size: 13px; font-weight: 700;
+    padding: 6px 12px; border-radius: 8px;
+    z-index: 7; pointer-events: none;
+    border: 1px solid rgba(255,255,255,.15);
   }
-  .btn:hover { background: #20232b; }
-  .btn.primary { background: var(--accent); color: white; border-color: transparent; }
-  .btn.primary:hover { background: #7b97ff; }
-  .error { max-width: 1380px; margin: 0 auto; padding: 40px 20px; text-align: center; color: var(--muted); }
-  .error h2 { color: var(--text); font-size: 17px; margin: 0 0 8px; }
-  .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 560px; }
-  .error code { background: #ffffff10; padding: 2px 6px; border-radius: 5px; font-size: 12px; color: #c8cbd5; word-break: break-all; }
-  .hidden { display: none !important; }
+
+  /* Iframe copy button */
+  .iframe-copy-btn {
+    position: absolute; top: 12px; right: 12px;
+    width: 36px; height: 36px;
+    background: rgba(0,0,0,.6);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 8px; color: #fff;
+    cursor: pointer; z-index: 6;
+    display: grid; place-items: center;
+    opacity: 0; transition: opacity .2s, background .15s;
+  }
+  .player-container:hover .iframe-copy-btn { opacity: 1; }
+  .iframe-copy-btn:hover { background: rgba(0,0,0,.85); }
+  .iframe-copy-btn svg { width: 16px; height: 16px; }
+
+  /* Controls */
+  .controls {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 12px 12px;
+    background: linear-gradient(to bottom,
+      rgba(0,0,0,.5) 0%, transparent 15%,
+      transparent 65%, rgba(0,0,0,.85) 100%);
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .player-container.controls-visible .controls {
+    opacity: 1; pointer-events: auto;
+  }
+
+  /* Progress */
+  .progress-bar {
+    position: relative; height: 16px;
+    display: flex; align-items: center;
+    margin-bottom: 6px; cursor: pointer;
+  }
+  .progress-track {
+    position: absolute; left: 0; right: 0; height: 4px;
+    background: rgba(255,255,255,.2); border-radius: 2px;
+    overflow: hidden; transition: height .15s;
+  }
+  .progress-buffer {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: rgba(255,255,255,.35); width: 0%; border-radius: 2px;
+  }
+  .progress-played {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--accent); width: 0%; border-radius: 2px;
+  }
+  .progress-thumb {
+    position: absolute; width: 12px; height: 12px;
+    background: var(--accent); border-radius: 50%;
+    transform: translate(-50%, -50%);
+    left: 0%; top: 50%;
+    opacity: 0; transition: opacity .15s;
+    pointer-events: none;
+    box-shadow: 0 0 0 3px rgba(107,140,255,.3);
+  }
+  .progress-input {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; cursor: pointer; margin: 0; z-index: 2;
+  }
+  .progress-bar:hover .progress-track { height: 5px; }
+  .progress-bar:hover .progress-thumb { opacity: 1; }
+
+  /* Row */
+  .control-row {
+    display: flex; align-items: center;
+    gap: 4px; color: #fff;
+  }
+  .ctrl-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border: none;
+    background: transparent; color: #fff; cursor: pointer;
+    border-radius: 8px; padding: 0;
+    transition: background .15s; flex-shrink: 0;
+  }
+  .ctrl-btn:hover { background: rgba(255,255,255,.15); }
+  .ctrl-btn:active { background: rgba(255,255,255,.25); }
+  .ctrl-btn svg { width: 22px; height: 22px; }
+
+  .play-btn { width: 44px; height: 44px; }
+  .play-btn svg { width: 24px; height: 24px; }
+
+  .skip-btn { position: relative; }
+  .skip-btn svg { width: 24px; height: 24px; }
+  .skip-btn .skip-label {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-size: 8.5px; font-weight: 700;
+    padding-top: 2px; pointer-events: none;
+  }
+  #skipFwdBtn svg { transform: scaleX(-1); }
+
+  .time-display {
+    font-size: 12px; font-weight: 500;
+    color: rgba(255,255,255,.9);
+    font-variant-numeric: tabular-nums;
+    padding: 0 8px; white-space: nowrap; user-select: none;
+  }
+  .time-sep { color: rgba(255,255,255,.5); margin: 0 2px; }
+
+  .spacer { flex: 1; }
+
+  /* Volume */
+  .volume-wrap {
+    position: relative; display: flex; align-items: center; gap: 2px;
+  }
+  .volume-slider {
+    width: 70px; height: 4px;
+    -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,.25);
+    border-radius: 2px; outline: none; cursor: pointer;
+    margin: 0 4px;
+  }
+  .volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; background: #fff;
+    border-radius: 50%; cursor: pointer;
+  }
+  .volume-slider::-moz-range-thumb {
+    width: 12px; height: 12px; background: #fff;
+    border-radius: 50%; cursor: pointer; border: none;
+  }
+  .volume-popup {
+    position: absolute; bottom: calc(100% + 4px); right: 4px;
+    background: rgba(0,0,0,.9);
+    color: #fff; padding: 4px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; pointer-events: none;
+    transition: opacity .15s; white-space: nowrap;
+  }
+
+  /* Settings panel */
+  .settings-panel {
+    position: absolute; bottom: 68px; right: 12px;
+    width: 260px; max-height: calc(100% - 90px);
+    overflow-y: auto;
+    background: rgba(20,22,28,.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px; padding: 8px;
+    z-index: 10;
+    box-shadow: 0 12px 32px rgba(0,0,0,.5);
+    animation: settings-in .15s ease-out;
+    color: #fff;
+  }
+  @keyframes settings-in {
+    from { opacity: 0; transform: translateY(4px) scale(.98); }
+    to { opacity: 1; transform: none; }
+  }
+  .settings-section { padding: 8px 4px; }
+  .settings-section + .settings-section {
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .settings-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 6px; padding: 0 4px;
+  }
+  .settings-options { display: flex; flex-wrap: wrap; gap: 4px; }
+  .settings-options button {
+    background: rgba(255,255,255,.06);
+    border: 1px solid transparent;
+    color: rgba(255,255,255,.85);
+    padding: 6px 10px; border-radius: 6px;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: background .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .settings-options button:hover { background: rgba(255,255,255,.12); }
+  .settings-options button.active {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .copy-link-btn {
+    width: 100%;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    color: #fff; padding: 10px 12px;
+    border-radius: 8px; font-size: 12px; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center;
+    gap: 8px; justify-content: center;
+    transition: background .15s;
+  }
+  .copy-link-btn:hover { background: rgba(255,255,255,.12); }
+  .copy-link-btn svg { width: 14px; height: 14px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 32px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(20,22,28,.95);
+    border: 1px solid rgba(255,255,255,.15);
+    color: #fff; padding: 10px 18px;
+    border-radius: 8px; font-size: 13px; font-weight: 500;
+    z-index: 1000; opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Fullscreen */
+  .player-container:fullscreen,
+  .player-container:-webkit-full-screen {
+    border-radius: 0; max-width: none;
+  }
+
+  /* Mobile */
   @media (max-width: 760px) {
-    .page { padding: 0 0 20px; }
-    .top { padding: 11px 13px; margin: 0; }
-    .caption { max-width: 42vw; font-size: 11px; }
-    .brand { font-size: 13px; }
-    .manual-input { padding: 0 13px; margin-bottom: 12px; }
-    .manual-input input { padding: 9px 11px; }
-    .manual-input button { padding: 9px 12px; }
-    .player-wrap { border-radius: 0; min-height: 210px; max-height: 75vh; }
-    .info { padding: 15px 13px 0; }
-    .info h1 { font-size: 16px; }
-    .quality-selector { top: 8px; right: 8px; }
-    .quality-btn { padding: 5px 9px; font-size: 11px; }
+    .page { padding: 0 0 16px; }
+    .top-section { padding: 0 14px; }
+    .brand { padding: 12px 0 8px; font-size: 14px; }
+    .brand-icon { width: 20px; height: 20px; }
+    .input-inner input { padding: 9px 11px; font-size: 12px; }
+    .input-inner button { padding: 9px 14px; font-size: 12px; }
+    .player-container { border-radius: 0; }
+    .controls { padding: 0 8px 8px; }
+    .ctrl-btn { width: 36px; height: 36px; }
+    .ctrl-btn svg { width: 20px; height: 20px; }
+    .play-btn { width: 40px; height: 40px; }
+    .time-display { font-size: 11px; padding: 0 4px; }
+    .volume-slider { width: 50px; }
+    .settings-panel { width: 240px; right: 8px; bottom: 60px; }
   }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="top">
-    <div class="brand">
-      <span class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M7 4.8c0-.9 1-1.4 1.8-.9l10.4 6.2a1 1 0 0 1 0 1.8L8.8 18.1A1.05 1.05 0 0 1 7 17.2V4.8Z"/>
-        </svg>
-      </span>
-      R·Films <span style="font-weight:450;color:#858b99">Player</span>
+  <div class="top-section">
+    <div class="brand" id="brand">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>R·Films</span>
     </div>
-    <div class="caption" id="topCaption">Плеер фильмов и сериалов</div>
+    <div class="input-wrapper" id="inputWrapper">
+      <form class="input-inner" id="manualForm" autocomplete="off">
+        <input type="text" id="manualUrl" placeholder="Вставьте ссылку (.m3u8, .mp4 или embed)" spellcheck="false">
+        <button type="submit">▶</button>
+      </form>
+    </div>
   </div>
 
-  <form class="manual-input" id="manualForm" autocomplete="off">
-    <input type="text" id="manualUrl"
-      placeholder="Вставьте ссылку: .m3u8, .mp4 или embed-плеер (любой домен)"
-      spellcheck="false">
-    <button type="submit">▶ Воспроизвести</button>
-  </form>
+  <div class="error-container hidden" id="errorContainer">
+    <h2 id="errorTitle">Не передана ссылка</h2>
+    <p id="errorMessage">Вставьте ссылку в поле выше или добавьте <code>?embed=</code> в адрес страницы.</p>
+  </div>
 
-  <div id="playerContainer" class="player-wrap hidden">
-    <div class="quality-selector hidden" id="qualitySelector">
-      <button type="button" class="quality-btn" id="qualityBtn">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
-        </svg>
-        <span id="qualityLabel">Auto</span>
-      </button>
-      <div class="quality-menu hidden" id="qualityMenu"></div>
-    </div>
-
-    <iframe id="playerFrame"
+  <div class="player-container hidden" id="playerContainer">
+    <video id="nativeVideo" class="hidden" playsinline preload="metadata"></video>
+    <iframe id="playerFrame" class="hidden"
       allowfullscreen
       allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"
       referrerpolicy="origin"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-pointer-lock"
     ></iframe>
-    <video id="nativeVideo" controls playsinline preload="metadata"></video>
-    <div class="loading" id="loadingOverlay">
-      <div class="content">
-        <div class="spinner"></div>
-        <div>Загрузка видео…</div>
-        <div class="sub" id="loadingSub"></div>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="speed-badge hidden" id="speedBadge">2×</div>
+
+    <button class="iframe-copy-btn hidden" id="iframeCopyBtn" title="Скопировать ссылку">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    </button>
+
+    <div class="controls" id="controls">
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-track">
+          <div class="progress-buffer" id="progressBuffer"></div>
+          <div class="progress-played" id="progressPlayed"></div>
+        </div>
+        <div class="progress-thumb" id="progressThumb"></div>
+        <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" step="1" aria-label="Прогресс">
+      </div>
+      <div class="control-row">
+        <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (←)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="2 4 2 10 8 10"/>
+            <path d="M4.5 15a9 9 0 1 0 2.13-9.36L2 10"/>
+          </svg>
+          <span class="skip-label" id="skipBackLabel">10</span>
+        </button>
+        <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg class="icon-pause hidden" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (→)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="2 4 2 10 8 10"/>
+            <path d="M4.5 15a9 9 0 1 0 2.13-9.36L2 10"/>
+          </svg>
+          <span class="skip-label" id="skipFwdLabel">10</span>
+        </button>
+        <div class="time-display">
+          <span id="timeCurrent">0:00</span>
+          <span class="time-sep">/</span>
+          <span id="timeTotal">0:00</span>
+        </div>
+        <div class="spacer"></div>
+        <div class="volume-wrap" id="volumeWrap">
+          <button class="ctrl-btn" id="muteBtn" title="Звук (M)">
+            <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+              <path d="M19 5a10 10 0 0 1 0 14"/>
+            </svg>
+            <svg class="icon-mute hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+              <line x1="22" y1="9" x2="16" y2="15"/>
+              <line x1="16" y1="9" x2="22" y2="15"/>
+            </svg>
+          </button>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" aria-label="Громкость">
+          <div class="volume-popup hidden" id="volumePopup">100%</div>
+        </div>
+        <button class="ctrl-btn" id="pipBtn" title="Картинка в картинке">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <rect x="12" y="11" width="8" height="7" rx="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="settingsBtn" title="Настройки">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="fullscreenBtn" title="На весь экран (F)">
+          <svg class="icon-fs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+            <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+          <svg class="icon-fs-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3"/>
+            <path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+            <path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
+            <path d="M3 16h3a2 2 0 0 1 2 2v3"/>
+          </svg>
+        </button>
       </div>
     </div>
-  </div>
 
-  <div id="errorContainer" class="error hidden">
-    <h2 id="errorTitle">Не передана ссылка на видео</h2>
-    <p id="errorMessage">
-      Вставьте ссылку в поле выше или добавьте в адрес страницы параметр <code>?embed=</code>.<br>
-      Поддерживаются прямые ссылки <code>.m3u8</code> (HLS) и <code>.mp4</code>,
-      а также любые embed-плееры (Kodik, Alloha, VK Video и т.д.).
-    </p>
-  </div>
-
-  <div id="infoContainer" class="info hidden">
-    <h1 id="pageTitle">Видео</h1>
-    <div class="meta" id="pageMeta"></div>
-    <div class="actions">
-      <a id="openExternal" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">↗ Открыть в новой вкладке</a>
-      <a id="downloadLink" class="btn hidden" href="#" target="_blank" rel="noopener noreferrer">⬇ Скачать MP4</a>
-      <button class="btn" id="copyEmbed" type="button">📋 Скопировать embed-ссылку</button>
-      <button class="btn" id="copyPage" type="button">🔗 Скопировать ссылку на страницу</button>
+    <div class="settings-panel hidden" id="settingsPanel">
+      <div class="settings-section hidden" id="qualitySection">
+        <div class="settings-title">Качество</div>
+        <div class="settings-options" id="qualityOptions"></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Скорость</div>
+        <div class="settings-options" id="speedOptions">
+          <button data-speed="0.5">0.5×</button>
+          <button data-speed="0.75">0.75×</button>
+          <button data-speed="1" class="active">1×</button>
+          <button data-speed="1.25">1.25×</button>
+          <button data-speed="1.5">1.5×</button>
+          <button data-speed="2">2×</button>
+          <button data-speed="3">3×</button>
+          <button data-speed="4">4×</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Шаг перемотки</div>
+        <div class="settings-options" id="stepOptions">
+          <button data-step="5">5 с</button>
+          <button data-step="10" class="active">10 с</button>
+          <button data-step="15">15 с</button>
+          <button data-step="30">30 с</button>
+          <button data-step="60">60 с</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <button class="copy-link-btn" id="copyLinkBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          Скопировать ссылку
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -210,59 +524,134 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
+
+  // Refs
+  const topSection      = document.querySelector('.top-section');
+  const brand           = $('brand');
+  const inputWrapper    = $('inputWrapper');
   const manualForm      = $('manualForm');
   const manualUrlInput  = $('manualUrl');
-  const playerContainer = $('playerContainer');
   const errorContainer  = $('errorContainer');
-  const infoContainer   = $('infoContainer');
-  const playerFrame     = $('playerFrame');
-  const nativeVideo     = $('nativeVideo');
-  const loadingOverlay  = $('loadingOverlay');
-  const loadingSub      = $('loadingSub');
   const errorTitle      = $('errorTitle');
   const errorMessage    = $('errorMessage');
-  const pageTitle       = $('pageTitle');
-  const pageMeta        = $('pageMeta');
-  const topCaption      = $('topCaption');
-  const openExternal    = $('openExternal');
-  const downloadLink    = $('downloadLink');
-  const qualitySelector = $('qualitySelector');
-  const qualityBtn      = $('qualityBtn');
-  const qualityLabel    = $('qualityLabel');
-  const qualityMenu     = $('qualityMenu');
+  const playerContainer = $('playerContainer');
+  const nativeVideo     = $('nativeVideo');
+  const playerFrame     = $('playerFrame');
+  const loadingOverlay  = $('loadingOverlay');
+  const speedBadge      = $('speedBadge');
+  const iframeCopyBtn   = $('iframeCopyBtn');
+  const controlsEl      = $('controls');
+  const progressBar     = $('progressBar');
+  const progressBuffer  = $('progressBuffer');
+  const progressPlayed  = $('progressPlayed');
+  const progressThumb   = $('progressThumb');
+  const progressInput   = $('progressInput');
+  const playBtn         = $('playBtn');
+  const iconPlay        = playBtn.querySelector('.icon-play');
+  const iconPause       = playBtn.querySelector('.icon-pause');
+  const skipBackBtn     = $('skipBackBtn');
+  const skipFwdBtn      = $('skipFwdBtn');
+  const skipBackLabel   = $('skipBackLabel');
+  const skipFwdLabel    = $('skipFwdLabel');
+  const timeCurrent     = $('timeCurrent');
+  const timeTotal       = $('timeTotal');
+  const muteBtn         = $('muteBtn');
+  const iconVol         = muteBtn.querySelector('.icon-vol');
+  const iconMute        = muteBtn.querySelector('.icon-mute');
+  const volumeSlider    = $('volumeSlider');
+  const volumePopup     = $('volumePopup');
+  const pipBtn          = $('pipBtn');
+  const settingsBtn     = $('settingsBtn');
+  const fullscreenBtn   = $('fullscreenBtn');
+  const iconFs          = fullscreenBtn.querySelector('.icon-fs');
+  const iconFsExit      = fullscreenBtn.querySelector('.icon-fs-exit');
+  const settingsPanel   = $('settingsPanel');
+  const qualitySection  = $('qualitySection');
+  const qualityOptions  = $('qualityOptions');
+  const speedOptions    = $('speedOptions');
+  const stepOptions     = $('stepOptions');
+  const copyLinkBtn     = $('copyLinkBtn');
 
+  // State
   let currentHls = null;
   let currentBlobUrl = null;
   let playbackId = 0;
+  let userSpeed = 1;
+  let tempSpeedActive = false;
+  let currentStep = 10;
+  let currentUrl = '';
+  let isSeeking = false;
+  let settingsOpen = false;
+  let controlsHideTimer = null;
+  let toastTimer = null;
+  let volumePopupTimer = null;
+  let spaceHoldTimer = null;
+  let spaceHeld = false;
+  let spaceTriggeredSpeed = false;
+  let pointerStart = null;
 
   // ============================================================
-  //  Хелперы
+  //  Helpers
   // ============================================================
-  function normalizeUrl(url) {
+  const normalizeUrl = url => {
     if (!url) return '';
     url = url.trim();
     if (url.startsWith('//')) return 'https:' + url;
     if (!/^https?:\/\//i.test(url)) return 'https://' + url;
     return url;
-  }
-  function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  function setLoading(active, sub) {
-    loadingOverlay.classList.toggle('active', !!active);
-    loadingSub.textContent = sub || '';
-  }
-  function formatLevelLabel(level) {
-    if (level.height) return level.height + 'p';
-    if (level.width && level.height) return level.width + '×' + level.height;
-    if (level.bitrate) return Math.round(level.bitrate / 1000) + ' kbps';
-    if (level.name) return level.name;
-    return '—';
-  }
+  };
+  const formatTime = sec => {
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    sec = Math.floor(sec);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    return m + ':' + String(s).padStart(2,'0');
+  };
+  const showToast = msg => {
+    let t = document.querySelector('.toast');
+    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+  };
+  const setLoading = on => loadingOverlay.classList.toggle('hidden', !on);
 
   // ============================================================
-  //  Парсер master.m3u8
+  //  Collapsible input
+  // ============================================================
+  let inputHideTimer = null;
+  const expandInput = () => {
+    clearTimeout(inputHideTimer);
+    inputWrapper.classList.remove('collapsed');
+  };
+  const scheduleCollapse = () => {
+    clearTimeout(inputHideTimer);
+    inputHideTimer = setTimeout(() => {
+      if (!inputWrapper.matches(':focus-within')) {
+        inputWrapper.classList.add('collapsed');
+      }
+    }, 300);
+  };
+  topSection.addEventListener('mouseenter', () => {
+    if (inputWrapper.classList.contains('collapsed')) expandInput();
+  });
+  topSection.addEventListener('mouseleave', () => {
+    if (!inputWrapper.classList.contains('collapsed') && document.activeElement !== manualUrlInput) {
+      scheduleCollapse();
+    }
+  });
+  brand.addEventListener('click', () => {
+    if (inputWrapper.classList.contains('collapsed')) {
+      expandInput();
+      setTimeout(() => manualUrlInput.focus(), 260);
+    }
+  });
+
+  // ============================================================
+  //  HLS parsing & probing (universal)
   // ============================================================
   function parseAttrList(str) {
     const attrs = {};
@@ -277,51 +666,38 @@
   }
   function parseM3u8Variants(text, baseUrl) {
     const lines = text.split(/\r?\n/);
-    const variants = [];
+    const out = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line.startsWith('#EXT-X-STREAM-INF:')) {
-        const attrs = parseAttrList(line.slice('#EXT-X-STREAM-INF:'.length));
-        for (let j = i + 1; j < lines.length; j++) {
-          const next = lines[j].trim();
-          if (next && !next.startsWith('#')) {
-            let abs;
-            try { abs = new URL(next, baseUrl).toString(); }
-            catch (e) { abs = next; }
-            variants.push({
-              url: abs,
-              bandwidth: parseInt(attrs.BANDWIDTH) || 0,
-              width: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[0]) : 0,
-              height: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[1]) : 0,
-              name: attrs.NAME || '',
-            });
-            break;
-          }
+      if (!line.startsWith('#EXT-X-STREAM-INF:')) continue;
+      const attrs = parseAttrList(line.slice('#EXT-X-STREAM-INF:'.length));
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim();
+        if (next && !next.startsWith('#')) {
+          let abs;
+          try { abs = new URL(next, baseUrl).toString(); } catch { abs = next; }
+          out.push({
+            url: abs,
+            bandwidth: parseInt(attrs.BANDWIDTH) || 0,
+            width: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[0]) : 0,
+            height: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[1]) : 0,
+            name: attrs.NAME || '',
+          });
+          break;
         }
       }
     }
-    return variants;
+    return out;
   }
 
-  // ============================================================
-  //  Универсальное распознавание качества в URL
-  // ============================================================
-  // Пытаемся найти паттерн "XXXp" (XXX = 3-4 цифры) в пути или имени файла.
-  // Поддержка: /480p/, /480/, __480p., _480p., -480p., /480p.
   function detectQualityInUrl(url) {
-    const patterns = [
-      /\/(\d{3,4})p\//i,
-      /\/(\d{3,4})\//i,
-      /__(\d{3,4})p\./i,
-      /_(\d{3,4})p\./i,
-      /-(\d{3,4})p\./i,
-      /\/(\d{3,4})p\./i,
+    const pats = [
+      /\/(\d{3,4})p\//i, /\/(\d{3,4})\//i,
+      /__(\d{3,4})p\./i, /_(\d{3,4})p\./i,
+      /-(\d{3,4})p\./i, /\/(\d{3,4})p\./i,
       /\/(\d{3,4})\.m3u8/i,
     ];
-    for (const re of patterns) {
-      const m = re.exec(url);
-      if (m) return m[1];
-    }
+    for (const re of pats) { const m = re.exec(url); if (m) return m[1]; }
     return null;
   }
   function replaceQuality(url, fromQ, toQ) {
@@ -338,76 +714,43 @@
     for (const [re, rep] of pairs) out = out.replace(re, rep);
     return out;
   }
+  const COMMON_Q = ['144','240','360','480','540','576','720','1080','1440','2160'];
+  const RES_MAP = {'144':[256,144],'240':[426,240],'360':[640,360],'480':[854,480],'540':[960,540],'576':[1024,576],'720':[1280,720],'1080':[1920,1080],'1440':[2560,1440],'2160':[3840,2160]};
+  const BW_MAP = {'144':200000,'240':400000,'360':800000,'480':1200000,'540':1800000,'576':2000000,'720':3000000,'1080':6000000,'1440':12000000,'2160':25000000};
 
-  const COMMON_QUALITIES = ['144','240','360','480','540','576','720','1080','1440','2160'];
-  const RES_MAP = {
-    '144':[256,144],'240':[426,240],'360':[640,360],'480':[854,480],
-    '540':[960,540],'576':[1024,576],'720':[1280,720],'1080':[1920,1080],
-    '1440':[2560,1440],'2160':[3840,2160],
-  };
-  const BW_MAP = {
-    '144':200000,'240':400000,'360':800000,'480':1200000,'540':1800000,
-    '576':2000000,'720':3000000,'1080':6000000,'1440':12000000,'2160':25000000,
-  };
-
-  // ============================================================
-  //  Проба соседних качеств
-  // ============================================================
   async function probeUrl(url, timeoutMs) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), timeoutMs || 2500);
     try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        signal: ctrl.signal,
-        credentials: 'omit',
-        cache: 'no-store',
-      });
+      const resp = await fetch(url, { method: 'GET', signal: ctrl.signal, credentials: 'omit', cache: 'no-store' });
       clearTimeout(t);
       if (!resp.ok) return null;
       const text = await resp.text();
       if (!text.trim().startsWith('#EXTM3U')) return null;
       return text;
-    } catch (e) {
-      clearTimeout(t);
-      return null;
-    }
+    } catch { clearTimeout(t); return null; }
   }
 
-  async function probeQualities(originalVariant, baseQuality) {
-    const found = [{ ...originalVariant, quality: baseQuality }];
-    const targets = COMMON_QUALITIES.filter(q => q !== baseQuality);
-    const probes = targets.map(q => {
-      const url = replaceQuality(originalVariant.url, baseQuality, q);
-      if (url === originalVariant.url) return null;
+  async function probeQualities(variant, baseQ) {
+    const found = [{ ...variant, quality: baseQ }];
+    const results = await Promise.all(COMMON_Q.filter(q => q !== baseQ).map(q => {
+      const url = replaceQuality(variant.url, baseQ, q);
+      if (url === variant.url) return Promise.resolve(null);
       return probeUrl(url, 2500).then(text => {
         if (!text) return null;
         const [w, h] = RES_MAP[q] || [0, 0];
-        return {
-          url,
-          quality: q,
-          width: w, height: h,
-          bandwidth: BW_MAP[q] || 1000000,
-          name: q + 'p',
-        };
+        return { url, quality: q, width: w, height: h, bandwidth: BW_MAP[q] || 1000000, name: q + 'p' };
       });
-    }).filter(Boolean);
-    const results = await Promise.all(probes);
+    }));
     for (const r of results) if (r) found.push(r);
-    // Сортируем по убыванию качества
     found.sort((a, b) => (parseInt(b.quality)||0) - (parseInt(a.quality)||0));
     return found;
   }
 
-  // ============================================================
-  //  Синтетический master.m3u8
-  // ============================================================
   function buildSyntheticMaster(variants) {
     let out = '#EXTM3U\n#EXT-X-VERSION:3\n';
     for (const v of variants) {
-      let attrs = [];
-      const bw = v.bandwidth || BW_MAP[v.quality] || 1000000;
-      attrs.push('BANDWIDTH=' + bw);
+      const attrs = ['BANDWIDTH=' + (v.bandwidth || BW_MAP[v.quality] || 1000000)];
       if (v.width && v.height) attrs.push('RESOLUTION=' + v.width + 'x' + v.height);
       else {
         const [w, h] = RES_MAP[v.quality] || [0, 0];
@@ -419,134 +762,283 @@
     return out;
   }
 
-  // ============================================================
-  //  Умная загрузка HLS (с probing)
-  // ============================================================
   async function loadHlsWithProbing(inputUrl) {
-    // 1. Пробуем скачать master
-    let masterText = null;
+    let text = null;
     try {
-      const resp = await fetch(inputUrl, { credentials: 'omit', cache: 'no-store' });
-      if (resp.ok) masterText = await resp.text();
-    } catch (e) {
-      console.warn('Pre-fetch failed:', e);
-    }
+      const r = await fetch(inputUrl, { credentials: 'omit', cache: 'no-store' });
+      if (r.ok) text = await r.text();
+    } catch (e) { console.warn('Pre-fetch failed:', e); }
+    if (!text) return { masterUrl: inputUrl };
 
-    if (!masterText) {
-      return { masterUrl: inputUrl, probedCount: 0 };
-    }
+    const variants = parseM3u8Variants(text, inputUrl);
+    const isMedia = !/#EXT-X-STREAM-INF:/i.test(text);
 
-    let variants = parseM3u8Variants(masterText, inputUrl);
-    const isMediaPlaylist = !/#EXT-X-STREAM-INF:/i.test(masterText);
-
-    // Если это media playlist — считаем его единственным "вариантом"
     let existing;
-    if (isMediaPlaylist) {
+    if (isMedia) {
       const q = detectQualityInUrl(inputUrl);
       existing = [{ url: inputUrl, quality: q, bandwidth: 0, width: 0, height: 0, name: q ? q + 'p' : '' }];
     } else {
-      existing = variants.map(v => ({
-        ...v,
-        quality: detectQualityInUrl(v.url),
-      }));
+      existing = variants.map(v => ({ ...v, quality: detectQualityInUrl(v.url) }));
     }
+    if (existing.length > 1) return { masterUrl: inputUrl };
 
-    // Если уже ≥2 варианта — не трогаем
-    if (existing.length > 1) {
-      return { masterUrl: inputUrl, probedCount: 0 };
-    }
+    const baseQ = existing[0].quality;
+    if (!baseQ) return { masterUrl: inputUrl };
 
-    // 2. Определяем паттерн качества
-    const single = existing[0];
-    const baseQ = single.quality;
-    if (!baseQ) {
-      return { masterUrl: inputUrl, probedCount: 0 };
-    }
+    setLoading(true);
+    const probed = await probeQualities(existing[0], baseQ);
+    if (probed.length <= 1) return { masterUrl: inputUrl };
 
-    // 3. Пробуем соседей
-    setLoading(true, 'Поиск дополнительных качеств…');
-    const probed = await probeQualities(single, baseQ);
-
-    if (probed.length <= 1) {
-      return { masterUrl: inputUrl, probedCount: 0 };
-    }
-
-    // 4. Собираем синтетический master
     const synth = buildSyntheticMaster(probed);
     const blob = new Blob([synth], { type: 'application/vnd.apple.mpegurl' });
     const blobUrl = URL.createObjectURL(blob);
     currentBlobUrl = blobUrl;
-
-    console.info('Probed variants:', probed.map(v => v.quality + 'p'));
-    return { masterUrl: blobUrl, probedCount: probed.length };
+    return { masterUrl: blobUrl };
   }
 
   // ============================================================
-  //  UI
+  //  Controls visibility
   // ============================================================
-  function showError(title, messageHtml) {
-    errorTitle.textContent = title;
-    errorMessage.innerHTML = messageHtml;
-    errorContainer.classList.remove('hidden');
-    infoContainer.classList.add('hidden');
-    playerContainer.classList.add('hidden');
-    setLoading(false);
-    topCaption.textContent = title;
-    document.title = title + ' · R·Films Player';
-    stopPlayback();
+  function showControls() {
+    playerContainer.classList.add('controls-visible');
+    clearTimeout(controlsHideTimer);
+    if (!nativeVideo.paused && !settingsOpen) {
+      controlsHideTimer = setTimeout(() => {
+        if (!settingsOpen) playerContainer.classList.remove('controls-visible');
+      }, 2500);
+    }
   }
-  function showKind(kind) {
-    playerFrame.style.display = kind === 'iframe' ? 'block' : 'none';
-    nativeVideo.style.display = kind === 'video'  ? 'block' : 'none';
-    playerContainer.classList.remove('hidden');
-    errorContainer.classList.add('hidden');
+  function hideControlsNow() {
+    clearTimeout(controlsHideTimer);
+    if (!nativeVideo.paused && !settingsOpen) {
+      playerContainer.classList.remove('controls-visible');
+    }
   }
-  function resetQualityUi() {
-    qualitySelector.classList.add('hidden');
-    qualityMenu.classList.add('hidden');
-    qualityMenu.innerHTML = '';
-    qualityLabel.textContent = 'Auto';
+  playerContainer.addEventListener('mousemove', showControls);
+  playerContainer.addEventListener('mouseleave', hideControlsNow);
+  controlsEl.addEventListener('mouseenter', () => {
+    clearTimeout(controlsHideTimer);
+    playerContainer.classList.add('controls-visible');
+  });
+  controlsEl.addEventListener('mouseleave', showControls);
+
+  // ============================================================
+  //  Progress
+  // ============================================================
+  function updateProgress() {
+    if (isSeeking) return;
+    const dur = nativeVideo.duration || 0;
+    const cur = nativeVideo.currentTime || 0;
+    const pct = dur ? (cur / dur) * 100 : 0;
+    progressPlayed.style.width = pct + '%';
+    progressThumb.style.left = pct + '%';
+    if (!progressInput.matches(':active')) {
+      progressInput.value = dur ? Math.round((cur / dur) * 1000) : 0;
+    }
+    timeCurrent.textContent = formatTime(cur);
+    timeTotal.textContent = formatTime(dur);
+    if (nativeVideo.buffered.length) {
+      const bufEnd = nativeVideo.buffered.end(nativeVideo.buffered.length - 1);
+      progressBuffer.style.width = dur ? (bufEnd / dur) * 100 + '%' : '0%';
+    }
   }
-  function stopPlayback() {
-    if (currentHls) { try { currentHls.destroy(); } catch (e) {} currentHls = null; }
-    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
-    try { nativeVideo.pause(); nativeVideo.removeAttribute('src'); nativeVideo.load(); } catch (e) {}
-    try { playerFrame.src = 'about:blank'; } catch (e) {}
-    resetQualityUi();
+  nativeVideo.addEventListener('timeupdate', updateProgress);
+  nativeVideo.addEventListener('durationchange', updateProgress);
+  nativeVideo.addEventListener('progress', updateProgress);
+  nativeVideo.addEventListener('loadedmetadata', updateProgress);
+  nativeVideo.addEventListener('playing', () => setLoading(false));
+  nativeVideo.addEventListener('canplay', () => setLoading(false));
+
+  progressInput.addEventListener('input', () => {
+    isSeeking = true;
+    const dur = nativeVideo.duration || 0;
+    const pct = progressInput.value / 1000;
+    progressPlayed.style.width = (pct * 100) + '%';
+    progressThumb.style.left = (pct * 100) + '%';
+    timeCurrent.textContent = formatTime(pct * dur);
+  });
+  progressInput.addEventListener('change', () => {
+    const dur = nativeVideo.duration || 0;
+    nativeVideo.currentTime = (progressInput.value / 1000) * dur;
+    isSeeking = false;
+  });
+
+  // ============================================================
+  //  Playback controls
+  // ============================================================
+  function togglePlay() {
+    if (nativeVideo.paused) nativeVideo.play().catch(() => {});
+    else nativeVideo.pause();
+  }
+  playBtn.addEventListener('click', togglePlay);
+  nativeVideo.addEventListener('play', () => {
+    iconPlay.classList.add('hidden');
+    iconPause.classList.remove('hidden');
+    showControls();
+  });
+  nativeVideo.addEventListener('pause', () => {
+    iconPlay.classList.remove('hidden');
+    iconPause.classList.add('hidden');
+    playerContainer.classList.add('controls-visible');
+    clearTimeout(controlsHideTimer);
+  });
+
+  const skipBy = sec => {
+    if (!isFinite(nativeVideo.duration)) return;
+    nativeVideo.currentTime = Math.max(0, Math.min(nativeVideo.duration, nativeVideo.currentTime + sec));
+  };
+  skipBackBtn.addEventListener('click', () => skipBy(-currentStep));
+  skipFwdBtn.addEventListener('click', () => skipBy(currentStep));
+
+  // Volume
+  function updateVolumeIcon() {
+    const v = nativeVideo.muted ? 0 : nativeVideo.volume;
+    iconVol.classList.toggle('hidden', v === 0);
+    iconMute.classList.toggle('hidden', v > 0);
+  }
+  volumeSlider.addEventListener('input', () => {
+    const v = volumeSlider.value / 100;
+    nativeVideo.muted = v === 0;
+    nativeVideo.volume = v;
+    updateVolumeIcon();
+    volumePopup.textContent = Math.round(v * 100) + '%';
+    volumePopup.classList.remove('hidden');
+    clearTimeout(volumePopupTimer);
+    volumePopupTimer = setTimeout(() => volumePopup.classList.add('hidden'), 900);
+  });
+  muteBtn.addEventListener('click', () => {
+    if (nativeVideo.muted || nativeVideo.volume === 0) {
+      nativeVideo.muted = false;
+      if (nativeVideo.volume === 0) nativeVideo.volume = 1;
+    } else {
+      nativeVideo.muted = true;
+    }
+    updateVolumeIcon();
+  });
+  nativeVideo.addEventListener('volumechange', () => {
+    volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
+    updateVolumeIcon();
+  });
+
+  // PiP
+  if (document.pictureInPictureEnabled) {
+    pipBtn.addEventListener('click', async () => {
+      try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else await nativeVideo.requestPictureInPicture();
+      } catch {}
+    });
+  } else pipBtn.classList.add('hidden');
+
+  // Fullscreen
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else (playerContainer.requestFullscreen || playerContainer.webkitRequestFullscreen)?.call(playerContainer);
+  }
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    const fs = !!document.fullscreenElement;
+    iconFs.classList.toggle('hidden', fs);
+    iconFsExit.classList.toggle('hidden', !fs);
+  });
+
+  // ============================================================
+  //  Speed
+  // ============================================================
+  function applyRate(rate) {
+    userSpeed = rate;
+    if (!tempSpeedActive) nativeVideo.playbackRate = rate;
+    speedOptions.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', parseFloat(b.dataset.speed) === rate);
+    });
+  }
+  speedOptions.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-speed]');
+    if (!btn) return;
+    applyRate(parseFloat(btn.dataset.speed));
+  });
+
+  function tempSpeed(rate) {
+    if (tempSpeedActive) return;
+    tempSpeedActive = true;
+    nativeVideo.playbackRate = rate;
+    speedBadge.textContent = rate + '×';
+    speedBadge.classList.remove('hidden');
+  }
+  function endTempSpeed() {
+    if (!tempSpeedActive) return;
+    tempSpeedActive = false;
+    nativeVideo.playbackRate = userSpeed;
+    speedBadge.classList.add('hidden');
   }
 
   // ============================================================
-  //  Ожидание hls.js
+  //  Step
   // ============================================================
-  function whenHlsReady(cb, onFail) {
-    if (window.Hls) { cb(); return; }
-    let attempts = 0;
-    const iv = setInterval(() => {
-      if (window.Hls) { clearInterval(iv); cb(); }
-      else if (++attempts > 150) { clearInterval(iv); onFail && onFail(); }
-    }, 100);
+  function setStep(sec) {
+    currentStep = sec;
+    skipBackLabel.textContent = sec;
+    skipFwdLabel.textContent = sec;
+    stepOptions.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.step, 10) === sec);
+    });
   }
+  stepOptions.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-step]');
+    if (!btn) return;
+    setStep(parseInt(btn.dataset.step, 10));
+  });
 
   // ============================================================
-  //  Селектор качества
+  //  Settings
+  // ============================================================
+  function toggleSettings(force) {
+    settingsOpen = typeof force === 'boolean' ? force : !settingsOpen;
+    settingsPanel.classList.toggle('hidden', !settingsOpen);
+    if (settingsOpen) {
+      playerContainer.classList.add('controls-visible');
+      clearTimeout(controlsHideTimer);
+    } else showControls();
+  }
+  settingsBtn.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
+  document.addEventListener('click', e => {
+    if (settingsOpen && !e.target.closest('.settings-panel') && !e.target.closest('#settingsBtn')) {
+      toggleSettings(false);
+    }
+  });
+  settingsPanel.addEventListener('click', e => e.stopPropagation());
+
+  // Copy link (in panel and on iframe)
+  async function copyLink() {
+    const text = currentUrl || location.href;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Ссылка скопирована');
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+        showToast('Ссылка скопирована');
+      } catch { showToast('Не удалось скопировать'); }
+    }
+  }
+  copyLinkBtn.addEventListener('click', copyLink);
+  iframeCopyBtn.addEventListener('click', copyLink);
+
+  // ============================================================
+  //  Quality menu
   // ============================================================
   function buildQualityMenu(hls, levels) {
-    qualityMenu.innerHTML = '';
-    qualityLabel.textContent = 'Auto';
-
+    qualityOptions.innerHTML = '';
     const autoBtn = document.createElement('button');
     autoBtn.type = 'button';
     autoBtn.dataset.level = '-1';
     autoBtn.textContent = 'Auto';
     autoBtn.classList.add('active');
-    autoBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      hls.currentLevel = -1;
-      qualityLabel.textContent = 'Auto';
-      setActiveLevel(-1);
-      qualityMenu.classList.add('hidden');
-    });
-    qualityMenu.appendChild(autoBtn);
+    autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); });
+    qualityOptions.appendChild(autoBtn);
 
     const sorted = levels.map((lv, i) => ({ lv, i }))
       .sort((a, b) => (b.lv.height || b.lv.bitrate || 0) - (a.lv.height || a.lv.bitrate || 0));
@@ -555,100 +1047,59 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.level = String(i);
-      btn.textContent = formatLevelLabel(lv);
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        hls.currentLevel = i;
-        qualityLabel.textContent = formatLevelLabel(lv);
-        setActiveLevel(i);
-        qualityMenu.classList.add('hidden');
-      });
-      qualityMenu.appendChild(btn);
+      btn.textContent = lv.height ? lv.height + 'p' : (lv.bitrate ? Math.round(lv.bitrate/1000) + 'k' : '—');
+      btn.addEventListener('click', () => { hls.currentLevel = i; setActiveLevel(i); });
+      qualityOptions.appendChild(btn);
     }
-
-    if (levels.length > 1) qualitySelector.classList.remove('hidden');
-
-    hls.on(window.Hls.Events.LEVEL_SWITCHED, (_, data) => {
-      if (hls.currentLevel === -1) {
-        const lv = hls.levels[data.level];
-        qualityLabel.textContent = (lv && lv.height) ? 'Auto · ' + lv.height + 'p' : 'Auto';
-      }
+    qualitySection.classList.toggle('hidden', levels.length <= 1);
+    hls.on(window.Hls.Events.LEVEL_SWITCHED, () => {
+      if (hls.currentLevel === -1) setActiveLevel(-1);
     });
   }
   function setActiveLevel(idx) {
-    qualityMenu.querySelectorAll('button').forEach(b => {
+    qualityOptions.querySelectorAll('button').forEach(b => {
       b.classList.toggle('active', b.dataset.level === String(idx));
     });
   }
-  qualityBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (qualityMenu.children.length === 0) return;
-    qualityMenu.classList.toggle('hidden');
-  });
-  document.addEventListener('click', () => qualityMenu.classList.add('hidden'));
 
   // ============================================================
-  //  Воспроизведение
+  //  Playback
   // ============================================================
   async function playHls(url) {
     stopPlayback();
-    setLoading(true, 'Загрузка HLS…');
+    setLoading(true);
     showKind('video');
 
-    // 1. Умная загрузка с probing
     const { masterUrl } = await loadHlsWithProbing(url);
 
-    // 2. Ждём hls.js и играем
     whenHlsReady(
       () => {
         if (window.Hls.isSupported()) {
           const hls = new window.Hls({
-            enableWorker: true,
-            lowLatencyMode: false,
-            backBufferLength: 90,
+            enableWorker: true, lowLatencyMode: false, backBufferLength: 90,
           });
           currentHls = hls;
           hls.loadSource(masterUrl);
           hls.attachMedia(nativeVideo);
-
           hls.on(window.Hls.Events.MANIFEST_PARSED, (_, data) => {
             setLoading(false);
             nativeVideo.play().catch(() => {});
-            const levels = (data && data.levels && data.levels.length) ? data.levels : (hls.levels || []);
+            const levels = (data?.levels?.length ? data.levels : hls.levels) || [];
             if (levels.length) buildQualityMenu(hls, levels);
           });
-
           hls.on(window.Hls.Events.ERROR, (_, data) => {
             if (!data.fatal) return;
             setLoading(false);
-            console.error('HLS fatal error:', data);
-            let msg = 'Не удалось загрузить HLS-поток.';
-            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-              msg = 'Сетевая ошибка HLS. Возможно, ссылка устарела, требует query-параметр или блокируется CORS.';
-            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
-              msg = 'Ошибка медиа в HLS-потоке.';
-            }
-            showToast(msg);
+            showToast('Ошибка загрузки HLS');
           });
           return;
         }
-
-        // Safari / нативный HLS
-        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) {
-          playHlsNative(url);
-        } else {
-          setLoading(false);
-          showError('HLS не поддерживается', 'Браузер не умеет воспроизводить HLS-потоки.');
-        }
+        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) playHlsNative(url);
+        else { setLoading(false); showError('HLS не поддерживается', 'Браузер не умеет воспроизводить HLS.'); }
       },
       () => {
-        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) {
-          playHlsNative(url);
-        } else {
-          setLoading(false);
-          showError('HLS недоступен',
-            'Библиотека <code>hls.js</code> не загрузилась, а браузер не поддерживает нативный HLS.');
-        }
+        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) playHlsNative(url);
+        else { setLoading(false); showError('HLS недоступен', 'Библиотека hls.js не загрузилась.'); }
       }
     );
   }
@@ -664,7 +1115,7 @@
     nativeVideo.addEventListener('error', () => {
       if (myId !== playbackId) return;
       setLoading(false);
-      showToast('Не удалось воспроизвести HLS.');
+      showToast('Не удалось воспроизвести HLS');
     }, { once: true });
   }
 
@@ -672,7 +1123,6 @@
     stopPlayback();
     setLoading(true);
     showKind('video');
-
     const myId = ++playbackId;
     nativeVideo.src = url;
     nativeVideo.addEventListener('loadedmetadata', () => {
@@ -683,158 +1133,194 @@
     nativeVideo.addEventListener('error', () => {
       if (myId !== playbackId) return;
       setLoading(false);
-      showToast('Не удалось загрузить видео. Возможно, ссылка устарела или блокируется CORS.');
+      showToast('Не удалось загрузить видео');
     }, { once: true });
   }
 
   function playEmbed(url) {
     stopPlayback();
-    setLoading(false);
     showKind('iframe');
     playerFrame.src = url;
   }
 
+  function showKind(kind) {
+    playerContainer.classList.remove('hidden');
+    errorContainer.classList.add('hidden');
+    if (kind === 'video') {
+      nativeVideo.classList.remove('hidden');
+      playerFrame.classList.add('hidden');
+      controlsEl.classList.remove('hidden');
+      iframeCopyBtn.classList.add('hidden');
+    } else {
+      nativeVideo.classList.add('hidden');
+      playerFrame.classList.remove('hidden');
+      controlsEl.classList.add('hidden');
+      iframeCopyBtn.classList.remove('hidden');
+      setLoading(false);
+    }
+  }
+
+  function stopPlayback() {
+    if (currentHls) { try { currentHls.destroy(); } catch {} currentHls = null; }
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} currentBlobUrl = null; }
+    try {
+      nativeVideo.pause();
+      nativeVideo.removeAttribute('src');
+      nativeVideo.load();
+    } catch {}
+    try { playerFrame.src = 'about:blank'; } catch {}
+    qualitySection.classList.add('hidden');
+    qualityOptions.innerHTML = '';
+    endTempSpeed();
+  }
+
+  function whenHlsReady(cb, onFail) {
+    if (window.Hls) return cb();
+    let n = 0;
+    const iv = setInterval(() => {
+      if (window.Hls) { clearInterval(iv); cb(); }
+      else if (++n > 150) { clearInterval(iv); onFail?.(); }
+    }, 100);
+  }
+
+  function showError(title, msg) {
+    errorTitle.textContent = title;
+    errorMessage.textContent = msg;
+    errorContainer.classList.remove('hidden');
+    playerContainer.classList.add('hidden');
+    setLoading(false);
+  }
+
   // ============================================================
-  //  Определение типа
+  //  Source detection & load
   // ============================================================
   function detectSource(parsed) {
     const path = parsed.pathname.toLowerCase();
-    if (/\.m3u8$/i.test(path)) return { type: 'hls' };
-    if (/\.(mp4|webm|ogg|mkv|m4v|mov)$/i.test(path)) return { type: 'mp4' };
-    return { type: 'embed' };
-  }
-  function deriveTitle(parsed, detection, explicitTitle) {
-    if (explicitTitle) return explicitTitle;
-    if (detection.type === 'embed') return parsed.hostname;
-    const segs = parsed.pathname.split('/').filter(Boolean);
-    const file = segs[segs.length - 1] || '';
-    const base = file.replace(/\.(m3u8|mp4|webm|ogg|mkv|m4v|mov)$/i, '')
-                     .replace(/__master$/i, '');
-    return base || parsed.hostname;
+    if (/\.m3u8$/i.test(path)) return 'hls';
+    if (/\.(mp4|webm|ogg|mkv|m4v|mov)$/i.test(path)) return 'mp4';
+    return 'embed';
   }
 
-  // ============================================================
-  //  Загрузка
-  // ============================================================
-  function loadFromUrl(rawUrl, explicitTitle, explicitDownload) {
+  function loadFromUrl(rawUrl) {
     const url = normalizeUrl(rawUrl);
     let parsed;
-    try { parsed = new URL(url); }
-    catch (e) {
-      showError('Некорректная ссылка',
-        'Не удалось разобрать URL. Убедитесь, что ссылка полная (начинается с <code>http://</code> или <code>https://</code>).');
-      return;
-    }
-    if (!/^https?:$/.test(parsed.protocol)) {
-      showError('Некорректный протокол', 'Разрешены только <code>http(s)</code>-ссылки.');
-      return;
-    }
+    try { parsed = new URL(url); } catch { return showError('Некорректная ссылка', 'Не удалось разобрать URL.'); }
+    if (!/^https?:$/.test(parsed.protocol)) return showError('Некорректный протокол', 'Разрешены только http(s).');
 
-    const detection = detectSource(parsed);
-    const title = deriveTitle(parsed, detection, explicitTitle);
-    const typeLabel = detection.type === 'hls' ? 'HLS (m3u8)'
-                    : detection.type === 'mp4' ? 'MP4' : 'iframe';
+    currentUrl = url;
+    document.body.classList.add('has-video');
+    inputWrapper.classList.add('collapsed');
 
-    infoContainer.classList.remove('hidden');
-    pageTitle.innerHTML = escapeHtml(title) + ' <span class="source-badge">' +
-                          escapeHtml(parsed.hostname) + '</span>';
-    topCaption.textContent = title;
-    document.title = title + ' · R·Films Player';
-    pageMeta.textContent = 'Источник: ' + parsed.hostname + ' · Тип: ' + typeLabel + ' · ' + parsed.pathname;
-    openExternal.href = url;
-
-    let downloadHref = explicitDownload ? normalizeUrl(explicitDownload) : '';
-    if (!downloadHref && detection.type === 'mp4') downloadHref = url;
-    if (downloadHref) {
-      downloadLink.href = downloadHref;
-      downloadLink.classList.remove('hidden');
-    } else {
-      downloadLink.href = '#';
-      downloadLink.classList.add('hidden');
-    }
-
-    if (detection.type === 'hls') playHls(url);
-    else if (detection.type === 'mp4') playMp4(url);
+    const type = detectSource(parsed);
+    if (type === 'hls') playHls(url);
+    else if (type === 'mp4') playMp4(url);
     else playEmbed(url);
   }
 
-  // ============================================================
-  //  Ручной ввод
-  // ============================================================
-  manualForm.addEventListener('submit', (e) => {
+  manualForm.addEventListener('submit', e => {
     e.preventDefault();
     const raw = manualUrlInput.value.trim();
     if (!raw) return;
     try {
       const u = new URL(location.href);
       u.searchParams.set('embed', raw);
-      u.searchParams.delete('download');
-      u.searchParams.delete('title');
       history.replaceState(null, '', u.toString());
-    } catch (err) {}
-    loadFromUrl(raw, '');
+    } catch {}
+    loadFromUrl(raw);
   });
 
   // ============================================================
-  //  Копирование
+  //  Keyboard
   // ============================================================
-  async function copyToClipboard(text, successMsg) {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        document.execCommand('copy'); ta.remove();
+  function isInputFocused() {
+    const el = document.activeElement;
+    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+  }
+  document.addEventListener('keydown', e => {
+    if (isInputFocused()) return;
+    if (playerContainer.classList.contains('hidden')) return;
+    switch (e.code) {
+      case 'Space':
+        e.preventDefault();
+        if (!spaceHeld) {
+          spaceHeld = true;
+          spaceTriggeredSpeed = false;
+          spaceHoldTimer = setTimeout(() => {
+            if (spaceHeld && !nativeVideo.paused) {
+              tempSpeed(2);
+              spaceTriggeredSpeed = true;
+            }
+          }, 220);
+        }
+        break;
+      case 'KeyM': e.preventDefault(); muteBtn.click(); break;
+      case 'KeyF': e.preventDefault(); toggleFullscreen(); break;
+      case 'ArrowLeft': e.preventDefault(); skipBy(-currentStep); break;
+      case 'ArrowRight': e.preventDefault(); skipBy(currentStep); break;
+      case 'ArrowUp': e.preventDefault(); nativeVideo.volume = Math.min(1, nativeVideo.volume + 0.1); break;
+      case 'ArrowDown': e.preventDefault(); nativeVideo.volume = Math.max(0, nativeVideo.volume - 0.1); break;
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (isInputFocused()) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (spaceHeld) {
+        spaceHeld = false;
+        clearTimeout(spaceHoldTimer);
+        if (spaceTriggeredSpeed) endTempSpeed();
+        else togglePlay();
       }
-      showToast(successMsg);
-    } catch (e) { showToast('Не удалось скопировать'); }
-  }
-  $('copyEmbed').addEventListener('click', () => {
-    const cur = new URL(location.href);
-    const embed = cur.searchParams.get('embed') || '';
-    if (!embed) { showToast('Нет ссылки для копирования'); return; }
-    copyToClipboard(normalizeUrl(embed), 'Embed-ссылка скопирована');
-  });
-  $('copyPage').addEventListener('click', () => {
-    copyToClipboard(location.href, 'Ссылка на страницу скопирована');
+    }
   });
 
-  function showToast(message) {
-    const toast = document.createElement('div');
-    toast.textContent = message;
-    toast.style.cssText = `
-      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
-      background: #171922ee; border: 1px solid #ffffff22; color: #f2f3f7;
-      padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 9999;
-      box-shadow: 0 8px 24px #0008; pointer-events: none; opacity: 0;
-      transition: opacity .2s; max-width: 90vw;
-    `;
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => { toast.style.opacity = '1'; });
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 220);
-    }, 2000);
+  // ============================================================
+  //  Click zones
+  // ============================================================
+  playerContainer.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    if (settingsOpen) return;
+    if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.iframe-copy-btn')) return;
+    if (nativeVideo.classList.contains('hidden')) return;
+
+    const rect = playerContainer.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    pointerStart = { x, time: Date.now(), startedSpeed: false };
+
+    if (x > 0.72 && !nativeVideo.paused) {
+      pointerStart.startedSpeed = true;
+      tempSpeed(2);
+    }
+  });
+
+  function endPointerAction() {
+    if (!pointerStart) return;
+    const { x, time, startedSpeed } = pointerStart;
+    pointerStart = null;
+    if (startedSpeed) { endTempSpeed(); return; }
+    if (Date.now() - time < 300) {
+      if (x < 0.28) skipBy(-currentStep);
+      else togglePlay();
+    }
   }
+  document.addEventListener('pointerup', endPointerAction);
+  document.addEventListener('pointercancel', endPointerAction);
 
   // ============================================================
   //  Bootstrap
   // ============================================================
   (function init() {
     const params = new URLSearchParams(location.search);
-    const rawEmbed    = (params.get('embed')    || '').trim();
-    const rawTitle    = (params.get('title')    || '').trim();
-    const rawDownload = (params.get('download') || '').trim();
+    const rawEmbed = (params.get('embed') || '').trim();
     if (!rawEmbed) { manualUrlInput.focus(); return; }
+    inputWrapper.classList.add('collapsed');
     manualUrlInput.value = rawEmbed;
-    loadFromUrl(rawEmbed, rawTitle, rawDownload);
+    loadFromUrl(rawEmbed);
   })();
 
   window.addEventListener('pagehide', () => {
-    if (currentHls) { try { currentHls.destroy(); } catch (e) {} }
-    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} }
+    if (currentHls) { try { currentHls.destroy(); } catch {} }
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} }
   });
 })();
 </script>
