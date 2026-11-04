@@ -71,6 +71,44 @@
     font-weight: 600;
     vertical-align: middle;
   }
+
+  /* ---- Ручной ввод ссылки ---- */
+  .manual-input {
+    display: flex;
+    gap: 8px;
+    max-width: 1380px;
+    margin: 0 auto 14px;
+    padding: 0 2px;
+  }
+  .manual-input input {
+    flex: 1;
+    min-width: 0;
+    background: #15171d;
+    border: 1px solid #ffffff1b;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .manual-input input:focus { border-color: var(--accent); }
+  .manual-input input::placeholder { color: #6b7280; }
+  .manual-input button {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .manual-input button:hover { background: #7b97ff; }
+
   .player-wrap {
     position: relative;
     width: 100%;
@@ -84,13 +122,46 @@
     border-radius: 14px;
     box-shadow: 0 18px 60px #0008;
   }
-  .player-wrap iframe {
+  .player-wrap iframe,
+  .player-wrap video {
     display: block;
     width: 100%;
     height: 100%;
     border: 0;
     background: #000;
   }
+  .player-wrap video { object-fit: contain; }
+
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: #000000cc;
+    color: var(--muted);
+    font-size: 13px;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .loading.active { opacity: 1; pointer-events: auto; }
+  .loading .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #ffffff22;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading .content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   .info {
     max-width: 1380px;
     margin: 0 auto;
@@ -107,6 +178,7 @@
     font-size: 12px;
     color: var(--muted);
     margin-bottom: 14px;
+    overflow-wrap: anywhere;
   }
   .actions {
     display: flex;
@@ -139,7 +211,7 @@
     color: var(--muted);
   }
   .error h2 { color: var(--text); font-size: 17px; margin: 0 0 8px; }
-  .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 540px; }
+  .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 560px; }
   .error code {
     background: #ffffff10;
     padding: 2px 6px;
@@ -154,6 +226,9 @@
     .top { padding: 11px 13px; margin: 0; }
     .caption { max-width: 42vw; font-size: 11px; }
     .brand { font-size: 13px; }
+    .manual-input { padding: 0 13px; margin-bottom: 12px; }
+    .manual-input input { padding: 9px 11px; }
+    .manual-input button { padding: 9px 12px; }
     .player-wrap { border-radius: 0; min-height: 210px; max-height: 75vh; }
     .info { padding: 15px 13px 0; }
     .info h1 { font-size: 16px; }
@@ -174,6 +249,16 @@
     <div class="caption" id="topCaption">Плеер фильмов и сериалов</div>
   </div>
 
+  <form class="manual-input" id="manualForm" autocomplete="off">
+    <input
+      type="text"
+      id="manualUrl"
+      placeholder="Вставьте ссылку: .m3u8, .mp4 или embed-плеер (Kodik, Alloha, VK…)"
+      spellcheck="false"
+    >
+    <button type="submit">▶ Воспроизвести</button>
+  </form>
+
   <div id="playerContainer" class="player-wrap hidden">
     <iframe
       id="playerFrame"
@@ -182,19 +267,26 @@
       referrerpolicy="origin"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock"
     ></iframe>
+    <video id="nativeVideo" controls playsinline preload="metadata"></video>
+    <div class="loading" id="loadingOverlay">
+      <div class="content">
+        <div class="spinner"></div>
+        <div>Загрузка видео…</div>
+      </div>
+    </div>
   </div>
 
   <div id="errorContainer" class="error hidden">
     <h2 id="errorTitle">Не передана ссылка на видео</h2>
     <p id="errorMessage">
-      Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер,
-      например: <code>?embed=//kodikplayer.com/video/112243/.../720p</code>
-      или <code>?embed=//miyagi-as.stravers.live/...</code>
+      Вставьте ссылку в поле выше или добавьте в адрес страницы параметр <code>?embed=</code>.<br>
+      Поддерживаются: <code>.m3u8</code> (HLS), <code>.mp4</code> и embed-плееры
+      (<code>kodikplayer.com</code>, <code>*.stravers.live</code>, VK Video и др.).
     </p>
   </div>
 
   <div id="infoContainer" class="info hidden">
-    <h1 id="pageTitle">Видео <span class="source-badge" id="sourceBadge"></span></h1>
+    <h1 id="pageTitle"><span class="source-badge" id="sourceBadge"></span></h1>
     <div class="meta" id="pageMeta"></div>
     <div class="actions">
       <a id="openExternal" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">
@@ -213,21 +305,21 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" async></script>
 <script>
 (() => {
   'use strict';
 
   // ============================================================
-  //  БЕЛЫЙ СПИСОК ДОМЕНОВ ПЛЕЕРОВ
+  //  БЕЛЫЙ СПИСОК EMBED-ПЛЕЕРОВ
   // ============================================================
-  // Все домены, чьи iframe разрешено встраивать.
-  // Сравнение идёт по hostname: либо точное совпадение,
-  // либо hostname заканчивается на "." + домен (для поддоменов).
+  // Только для встраиваемых через iframe. Прямые медиа-ссылки
+  // (.m3u8, .mp4) сюда не входят — они обрабатываются как video.
   const ALLOWED_PLAYERS = [
     { domain: 'kodikplayer.com',  label: 'Kodik'  },
-    { domain: 'kodik.biz',        label: 'Kodik'  },  // резервный домен Kodik
-    { domain: 'stravers.live',    label: 'Alloha' },  // основной домен iframe Alloha
-    { domain: 'allohamovies.com', label: 'Alloha' },  // возможный запасной домен
+    { domain: 'kodik.biz',        label: 'Kodik'  },
+    { domain: 'stravers.live',    label: 'Alloha' },
+    { domain: 'allohamovies.com', label: 'Alloha' },
     { domain: 'player.cdnvideohub.com', label: 'CDNVideoHub' },
     { domain: 'animego.me', label: 'CDNVideoHub' },
     { domain: 'vkvideo.ru', label: 'VK Video' },
@@ -236,161 +328,47 @@
     { domain: 'vkuser.net', label: 'VK Video' }
   ];
 
-  // Возвращает объект {label, domain} если домен разрешён, иначе null
   function resolvePlayer(hostname) {
     const h = hostname.toLowerCase();
     for (const p of ALLOWED_PLAYERS) {
-      if (h === p.domain || h.endsWith('.' + p.domain)) {
-        return p;
-      }
+      if (h === p.domain || h.endsWith('.' + p.domain)) return p;
     }
     return null;
   }
 
   // ============================================================
+  //  DOM
+  // ============================================================
+  const $ = id => document.getElementById(id);
+  const manualForm       = $('manualForm');
+  const manualUrlInput   = $('manualUrl');
+  const playerContainer  = $('playerContainer');
+  const errorContainer   = $('errorContainer');
+  const infoContainer    = $('infoContainer');
+  const playerFrame      = $('playerFrame');
+  const nativeVideo      = $('nativeVideo');
+  const loadingOverlay   = $('loadingOverlay');
+  const errorTitle       = $('errorTitle');
+  const errorMessage     = $('errorMessage');
+  const pageTitle        = $('pageTitle');
+  const pageMeta         = $('pageMeta');
+  const topCaption       = $('topCaption');
+  const sourceBadge      = $('sourceBadge');
+  const openExternal     = $('openExternal');
+  const downloadLink     = $('downloadLink');
 
-  const params = new URLSearchParams(location.search);
-  const rawEmbed = (params.get('embed') || '').trim();
-  const rawDownload = (params.get('download') || '').trim();
-  const rawTitle = (params.get('title') || '').trim();
+  let currentHls = null;
+  let playbackId = 0; // защита от гонок между сменой src у <video>
 
-  const playerContainer = document.getElementById('playerContainer');
-  const errorContainer = document.getElementById('errorContainer');
-  const infoContainer = document.getElementById('infoContainer');
-  const playerFrame = document.getElementById('playerFrame');
-  const errorTitle = document.getElementById('errorTitle');
-  const errorMessage = document.getElementById('errorMessage');
-  const pageTitle = document.getElementById('pageTitle');
-  const pageMeta = document.getElementById('pageMeta');
-  const topCaption = document.getElementById('topCaption');
-  const sourceBadge = document.getElementById('sourceBadge');
-  const openExternal = document.getElementById('openExternal');
-  const downloadLink = document.getElementById('downloadLink');
-
+  // ============================================================
+  //  Хелперы
+  // ============================================================
   function normalizeUrl(url) {
     if (!url) return '';
+    url = url.trim();
     if (url.startsWith('//')) return 'https:' + url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return 'https://' + url;
+    if (!/^https?:\/\//i.test(url)) return 'https://' + url;
     return url;
-  }
-
-  function showError(title, message) {
-    errorTitle.textContent = title;
-    errorMessage.innerHTML = message;
-    errorContainer.classList.remove('hidden');
-    infoContainer.classList.add('hidden');
-    playerContainer.classList.add('hidden');
-  }
-
-  if (!rawEmbed) {
-    showError(
-      'Не передана ссылка на видео',
-      'Добавьте в адрес страницы параметр <code>?embed=</code> со ссылкой на плеер, ' +
-      'например: <code>?embed=//kodikplayer.com/video/112243/.../720p</code> ' +
-      'или <code>?embed=//miyagi-as.stravers.live/...</code>'
-    );
-    return;
-  }
-
-  const embedUrl = normalizeUrl(rawEmbed);
-  const downloadUrl = rawDownload ? normalizeUrl(rawDownload) : '';
-  const title = rawTitle || 'R·Films Player';
-
-  let parsed;
-  try {
-    parsed = new URL(embedUrl);
-  } catch (e) {
-    showError('Некорректная ссылка', 'Не удалось разобрать URL плеера.');
-    return;
-  }
-
-  const player = resolvePlayer(parsed.hostname);
-  if (!player) {
-    showError(
-      'Некорректный источник',
-      'Этот плеер поддерживает только известные домены плееров ' +
-      '(<code>kodikplayer.com</code>, <code>*.stravers.live</code> и др.). ' +
-      'Получен: <code>' + escapeHtml(parsed.hostname) + '</code>. ' +
-      'Если это новый балансер — добавьте его домен в массив ' +
-      '<code>ALLOWED_PLAYERS</code> в коде страницы.'
-    );
-    return;
-  }
-
-  // Отображаем плеер
-  playerFrame.src = embedUrl;
-  playerContainer.classList.remove('hidden');
-  infoContainer.classList.remove('hidden');
-
-  pageTitle.childNodes[0].nodeValue = title + ' ';
-  sourceBadge.textContent = player.label;
-  topCaption.textContent = title;
-  document.title = title + ' · R·Films Player';
-  pageMeta.textContent = 'Источник: ' + player.label + ' · ' + parsed.hostname;
-
-  openExternal.href = embedUrl;
-
-  if (downloadUrl) {
-    downloadLink.href = downloadUrl;
-    downloadLink.classList.remove('hidden');
-  } else {
-    downloadLink.classList.add('hidden');
-  }
-
-  document.getElementById('copyEmbed').addEventListener('click', () => {
-    copyToClipboard(embedUrl, 'Embed-ссылка скопирована');
-  });
-
-  document.getElementById('copyPage').addEventListener('click', () => {
-    copyToClipboard(location.href, 'Ссылка на страницу скопирована');
-  });
-
-  async function copyToClipboard(text, successMsg) {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-      }
-      showToast(successMsg);
-    } catch (e) {
-      showToast('Не удалось скопировать');
-    }
-  }
-
-  function showToast(message) {
-    const toast = document.createElement('div');
-    toast.textContent = message;
-    toast.style.cssText = `
-      position: fixed;
-      left: 50%;
-      bottom: 28px;
-      transform: translateX(-50%);
-      background: #171922ee;
-      border: 1px solid #ffffff22;
-      color: #f2f3f7;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      z-index: 9999;
-      box-shadow: 0 8px 24px #0008;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity .2s;
-    `;
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => { toast.style.opacity = '1'; });
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 220);
-    }, 1800);
   }
 
   function escapeHtml(s) {
@@ -400,7 +378,179 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
-})();
-</script>
-</body>
-</html>
+
+  function isHlsUrl(parsed) { return /\.m3u8$/i.test(parsed.pathname); }
+  function isMp4Url(parsed) { return /\.mp4$/i.test(parsed.pathname); }
+
+  // ============================================================
+  //  UI-состояния
+  // ============================================================
+  function showError(title, messageHtml) {
+    errorTitle.textContent = title;
+    errorMessage.innerHTML = messageHtml;
+    errorContainer.classList.remove('hidden');
+    infoContainer.classList.add('hidden');
+    playerContainer.classList.add('hidden');
+    loadingOverlay.classList.remove('active');
+    topCaption.textContent = title;
+    document.title = title + ' · R·Films Player';
+    stopPlayback();
+  }
+
+  function showKind(kind) {
+    playerFrame.style.display  = kind === 'iframe' ? 'block' : 'none';
+    nativeVideo.style.display  = kind === 'video'  ? 'block' : 'none';
+    playerContainer.classList.remove('hidden');
+    errorContainer.classList.add('hidden');
+  }
+
+  function setLoading(active) {
+    loadingOverlay.classList.toggle('active', !!active);
+  }
+
+  function stopPlayback() {
+    if (currentHls) {
+      try { currentHls.destroy(); } catch (e) {}
+      currentHls = null;
+    }
+    try {
+      nativeVideo.pause();
+      nativeVideo.removeAttribute('src');
+      nativeVideo.load();
+    } catch (e) {}
+    try { playerFrame.src = 'about:blank'; } catch (e) {}
+  }
+
+  // ============================================================
+  //  Определение типа источника
+  // ============================================================
+  function detectSource(parsed) {
+    if (isHlsUrl(parsed)) return { type: 'hls' };
+    if (isMp4Url(parsed)) return { type: 'mp4' };
+    const p = resolvePlayer(parsed.hostname);
+    if (p) return { type: 'embed', player: p };
+    return null;
+  }
+
+  function getSourceLabel(parsed, detection) {
+    if (detection.type === 'embed') return detection.player.label;
+    const h = parsed.hostname;
+    if (h === 'tazaromikaz.link' || h.endsWith('.tazaromikaz.link')) return 'Tazaromikaz';
+    if (h === 'mvapspdmpg.com' || h.endsWith('.mvapspdmpg.com')) return 'MVAP';
+    return h;
+  }
+
+  function deriveTitle(parsed, detection, explicitTitle) {
+    if (explicitTitle) return explicitTitle;
+    if (detection.type === 'embed') return 'Плеер ' + detection.player.label;
+    const segs = parsed.pathname.split('/').filter(Boolean);
+    const file = segs[segs.length - 1] || '';
+    const base = file.replace(/\.(m3u8|mp4)$/i, '').replace(/__master$/i, '');
+    return base || 'Видео';
+  }
+
+  // ============================================================
+  //  Ожидание hls.js
+  // ============================================================
+  // hls.js грузится асинхронно. Если к моменту playHls его ещё нет,
+  // ждём до 15 секунд. Так страница не блокируется из-за CDN.
+  function whenHlsReady(cb, onFail) {
+    if (window.Hls) { cb(); return; }
+    let attempts = 0;
+    const iv = setInterval(() => {
+      if (window.Hls) {
+        clearInterval(iv);
+        cb();
+      } else if (++attempts > 150) {
+        clearInterval(iv);
+        onFail && onFail();
+      }
+    }, 100);
+  }
+
+  // ============================================================
+  //  Проигрывание
+  // ============================================================
+  function playHls(url) {
+    stopPlayback();
+    setLoading(true);
+    showKind('video');
+
+    whenHlsReady(
+      () => {
+        if (window.Hls.isSupported()) {
+          const hls = new window.Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 90,
+          });
+          currentHls = hls;
+          hls.loadSource(url);
+          hls.attachMedia(nativeVideo);
+          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            setLoading(false);
+            nativeVideo.play().catch(() => {});
+          });
+          hls.on(window.Hls.Events.ERROR, (_, data) => {
+            if (!data.fatal) return;
+            setLoading(false);
+            console.error('HLS fatal error:', data);
+            let msg = 'Не удалось загрузить HLS-поток.';
+            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+              msg = 'Сетевая ошибка HLS. Возможно, ссылка устарела или заблокирована CORS.';
+            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+              msg = 'Ошибка медиа в HLS-потоке.';
+            }
+            showToast(msg);
+          });
+          return;
+        }
+
+        // hls.js загрузился, но не поддерживается — пробуем нативный HLS
+        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) {
+          playHlsNative(url);
+        } else {
+          setLoading(false);
+          showError('HLS не поддерживается', 'Браузер не умеет воспроизводить HLS-потоки.');
+        }
+      },
+      () => {
+        // hls.js не загрузился
+        if (nativeVideo.canPlayType('application/vnd.apple.mpegurl')) {
+          playHlsNative(url);
+        } else {
+          setLoading(false);
+          showError(
+            'HLS недоступен',
+            'Библиотека <code>hls.js</code> не загрузилась (проверьте доступ к CDN), ' +
+            'а браузер не поддерживает нативный HLS.'
+          );
+        }
+      }
+    );
+  }
+
+  function playHlsNative(url) {
+    const myId = ++playbackId;
+    nativeVideo.src = url;
+    nativeVideo.addEventListener('loadedmetadata', () => {
+      if (myId !== playbackId) return;
+      setLoading(false);
+      nativeVideo.play().catch(() => {});
+    }, { once: true });
+    nativeVideo.addEventListener('error', () => {
+      if (myId !== playbackId) return;
+      setLoading(false);
+      showToast('Не удалось воспроизвести HLS.');
+    }, { once: true });
+  }
+
+  function playMp4(url) {
+    stopPlayback();
+    setLoading(true);
+    showKind('video');
+
+    const myId = ++playbackId;
+    nativeVideo.src = url;
+    nativeVideo.addEventListener('loadedmetadata', () => {
+      if (
