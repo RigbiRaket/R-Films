@@ -553,4 +553,187 @@
     const myId = ++playbackId;
     nativeVideo.src = url;
     nativeVideo.addEventListener('loadedmetadata', () => {
-      if (
+      if (myId !== playbackId) return;
+      setLoading(false);
+      nativeVideo.play().catch(() => {});
+    }, { once: true });
+    nativeVideo.addEventListener('error', () => {
+      if (myId !== playbackId) return;
+      setLoading(false);
+      showToast('Не удалось загрузить MP4. Возможно, ссылка устарела.');
+    }, { once: true });
+  }
+
+  function playEmbed(url) {
+    stopPlayback();
+    setLoading(false);
+    showKind('iframe');
+    playerFrame.src = url;
+  }
+
+  // ============================================================
+  //  Загрузка источника
+  // ============================================================
+  function loadFromUrl(rawUrl, explicitTitle, explicitDownload) {
+    const url = normalizeUrl(rawUrl);
+    let parsed;
+    try { parsed = new URL(url); }
+    catch (e) {
+      showError('Некорректная ссылка',
+        'Не удалось разобрать URL. Убедитесь, что ссылка полная (начинается с <code>http://</code> или <code>https://</code>).');
+      return;
+    }
+
+    if (!/^https?:$/.test(parsed.protocol)) {
+      showError('Некорректный протокол', 'Разрешены только <code>http(s)</code>-ссылки.');
+      return;
+    }
+
+    const detection = detectSource(parsed);
+    if (!detection) {
+      showError(
+        'Неподдерживаемый источник',
+        'Поддерживаются: <code>.m3u8</code>, <code>.mp4</code> и известные embed-плееры ' +
+        '(<code>kodikplayer.com</code>, <code>*.stravers.live</code>, VK Video и др.).<br>' +
+        'Получен хост: <code>' + escapeHtml(parsed.hostname) + '</code>.'
+      );
+      return;
+    }
+
+    const title = deriveTitle(parsed, detection, explicitTitle);
+    const label = getSourceLabel(parsed, detection);
+
+    // ---- Инфо-панель ----
+    infoContainer.classList.remove('hidden');
+
+    // Пересобираем h1: [текст][badge]
+    while (pageTitle.firstChild && pageTitle.firstChild !== sourceBadge) {
+      pageTitle.removeChild(pageTitle.firstChild);
+    }
+    pageTitle.insertBefore(document.createTextNode(title + ' '), sourceBadge);
+
+    sourceBadge.textContent = label;
+    topCaption.textContent = title;
+    document.title = title + ' · R·Films Player';
+
+    let meta = 'Источник: ' + label + ' · ' + parsed.hostname;
+    if (detection.type === 'hls') meta += ' · HLS (m3u8)';
+    else if (detection.type === 'mp4') meta += ' · MP4';
+    pageMeta.textContent = meta;
+
+    openExternal.href = url;
+
+    // Кнопка скачивания: явный ?download= > mp4 > скрыть
+    let downloadHref = explicitDownload ? normalizeUrl(explicitDownload) : '';
+    if (!downloadHref && detection.type === 'mp4') downloadHref = url;
+    if (downloadHref) {
+      downloadLink.href = downloadHref;
+      downloadLink.classList.remove('hidden');
+    } else {
+      downloadLink.href = '#';
+      downloadLink.classList.add('hidden');
+    }
+
+    // ---- Запуск ----
+    if (detection.type === 'hls') playHls(url);
+    else if (detection.type === 'mp4') playMp4(url);
+    else playEmbed(url);
+  }
+
+  // ============================================================
+  //  Ручной ввод
+  // ============================================================
+  manualForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const raw = manualUrlInput.value.trim();
+    if (!raw) return;
+
+    // Сохраняем в адресную строку (shareable)
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('embed', raw);
+      u.searchParams.delete('download');
+      u.searchParams.delete('title');
+      history.replaceState(null, '', u.toString());
+    } catch (err) {}
+
+    loadFromUrl(raw, '');
+  });
+
+  // ============================================================
+  //  Копирование
+  // ============================================================
+  async function copyToClipboard(text, successMsg) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      showToast(successMsg);
+    } catch (e) {
+      showToast('Не удалось скопировать');
+    }
+  }
+
+  $('copyEmbed').addEventListener('click', () => {
+    const cur = new URL(location.href);
+    const embed = cur.searchParams.get('embed') || '';
+    if (!embed) { showToast('Нет ссылки для копирования'); return; }
+    copyToClipboard(normalizeUrl(embed), 'Embed-ссылка скопирована');
+  });
+
+  $('copyPage').addEventListener('click', () => {
+    copyToClipboard(location.href, 'Ссылка на страницу скопирована');
+  });
+
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+      background: #171922ee; border: 1px solid #ffffff22; color: #f2f3f7;
+      padding: 10px 16px; border-radius: 8px; font-size: 13px; z-index: 9999;
+      box-shadow: 0 8px 24px #0008; pointer-events: none; opacity: 0;
+      transition: opacity .2s;
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 220);
+    }, 1800);
+  }
+
+  // ============================================================
+  //  Bootstrap
+  // ============================================================
+  (function init() {
+    const params = new URLSearchParams(location.search);
+    const rawEmbed    = (params.get('embed')    || '').trim();
+    const rawTitle    = (params.get('title')    || '').trim();
+    const rawDownload = (params.get('download') || '').trim();
+
+    if (!rawEmbed) {
+      manualUrlInput.focus();
+      return;
+    }
+
+    manualUrlInput.value = rawEmbed;
+    loadFromUrl(rawEmbed, rawTitle, rawDownload);
+  })();
+
+  window.addEventListener('pagehide', () => {
+    if (currentHls) { try { currentHls.destroy(); } catch (e) {} }
+  });
+})();
+</script>
+</body>
+</html>
