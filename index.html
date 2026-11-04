@@ -8,54 +8,36 @@
 <style>
   :root {
     color-scheme: dark;
-    --bg: #08090c;
-    --panel: #14161c;
-    --line: #ffffff18;
-    --text: #f5f6f8;
-    --muted: #a3a8b4;
-    --accent: #6b8cff;
+    --bg: #08090c; --panel: #14161c; --line: #ffffff18;
+    --text: #f5f6f8; --muted: #a3a8b4; --accent: #6b8cff;
   }
   * { box-sizing: border-box; }
   html, body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; background: var(--bg); color: var(--text);
     font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .page { max-width: 1480px; margin: 0 auto; padding: 18px 22px 26px; }
-  .top {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; margin-bottom: 14px;
-  }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
   .brand { font-weight: 760; font-size: 15px; display: flex; gap: 9px; align-items: center; }
   .brand-mark {
     width: 26px; height: 26px; display: grid; place-items: center;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #7b97ff, #4467d8);
+    border-radius: 8px; background: linear-gradient(135deg, #7b97ff, #4467d8);
     box-shadow: 0 3px 12px #4c6fff55;
   }
   .brand-mark svg { width: 15px; height: 15px; }
-  .caption {
-    color: var(--muted); font-size: 12px; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; max-width: 55vw;
-  }
+  .caption { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55vw; }
   .source-badge {
     display: inline-block; margin-left: 8px; padding: 2px 7px;
     border-radius: 5px; background: #ffffff10; color: var(--muted);
     font-size: 11px; font-weight: 600; vertical-align: middle;
   }
 
-  .manual-input {
-    display: flex; gap: 8px; max-width: 1380px;
-    margin: 0 auto 14px; padding: 0 2px;
-  }
+  .manual-input { display: flex; gap: 8px; max-width: 1380px; margin: 0 auto 14px; padding: 0 2px; }
   .manual-input input {
-    flex: 1; min-width: 0;
-    background: #15171d; border: 1px solid #ffffff1b; border-radius: 8px;
-    padding: 10px 12px; color: var(--text);
-    font-size: 13px; font-family: inherit; outline: none;
-    transition: border-color .15s;
+    flex: 1; min-width: 0; background: #15171d; border: 1px solid #ffffff1b;
+    border-radius: 8px; padding: 10px 12px; color: var(--text);
+    font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s;
   }
   .manual-input input:focus { border-color: var(--accent); }
   .manual-input input::placeholder { color: #6b7280; }
@@ -72,24 +54,17 @@
     max-height: calc(100vh - 120px); overflow: hidden;
     border-radius: 14px; box-shadow: 0 18px 60px #0008;
   }
-  .player-wrap iframe,
-  .player-wrap video {
-    display: block; width: 100%; height: 100%;
-    border: 0; background: #000;
-  }
+  .player-wrap iframe, .player-wrap video { display: block; width: 100%; height: 100%; border: 0; background: #000; }
   .player-wrap video { object-fit: contain; }
 
   /* ---------- Quality selector ---------- */
-  .quality-selector {
-    position: absolute; top: 12px; right: 12px; z-index: 4;
-  }
+  .quality-selector { position: absolute; top: 12px; right: 12px; z-index: 4; }
   .quality-btn {
     display: inline-flex; align-items: center; gap: 6px;
     background: #000000aa; backdrop-filter: blur(8px);
     border: 1px solid #ffffff26; border-radius: 7px;
-    padding: 6px 11px; color: #fff;
-    font: 600 12px/1 inherit; cursor: pointer; user-select: none;
-    transition: background .15s, border-color .15s;
+    padding: 6px 11px; color: #fff; font: 600 12px/1 inherit;
+    cursor: pointer; user-select: none; transition: background .15s, border-color .15s;
   }
   .quality-btn:hover { background: #000000cc; border-color: #ffffff40; }
   .quality-btn svg { width: 13px; height: 13px; opacity: .8; }
@@ -98,23 +73,18 @@
     background: #14161cf2; backdrop-filter: blur(10px);
     border: 1px solid #ffffff22; border-radius: 9px;
     overflow: hidden; min-width: 118px;
-    box-shadow: 0 10px 30px #000a;
-    padding: 4px;
+    box-shadow: 0 10px 30px #000a; padding: 4px;
+    max-height: 60vh; overflow-y: auto;
   }
   .quality-menu button {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 8px;
-    width: 100%; text-align: left;
-    padding: 8px 11px;
+    gap: 8px; width: 100%; text-align: left; padding: 8px 11px;
     background: none; border: none; border-radius: 5px;
-    color: #e5e7eb; font: 500 12px/1 inherit; cursor: pointer;
-    white-space: nowrap;
+    color: #e5e7eb; font: 500 12px/1 inherit; cursor: pointer; white-space: nowrap;
   }
   .quality-menu button:hover { background: #ffffff12; }
   .quality-menu button.active { color: var(--accent); background: #ffffff08; }
-  .quality-menu button.active::after {
-    content: "✓"; font-size: 11px; margin-left: auto; opacity: .9;
-  }
+  .quality-menu button.active::after { content: "✓"; font-size: 11px; margin-left: auto; opacity: .9; }
 
   .loading {
     position: absolute; inset: 0; display: grid; place-items: center;
@@ -129,37 +99,25 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading .content { display: flex; flex-direction: column; align-items: center; }
+  .loading .sub { font-size: 11px; color: #6b7280; margin-top: 4px; }
 
   .info { max-width: 1380px; margin: 0 auto; padding: 18px 2px 0; }
-  .info h1 {
-    font-size: 18px; line-height: 1.35; margin: 0 0 8px;
-    font-weight: 700; overflow-wrap: anywhere;
-  }
-  .info .meta {
-    font-size: 12px; color: var(--muted); margin-bottom: 14px;
-    overflow-wrap: anywhere;
-  }
+  .info h1 { font-size: 18px; line-height: 1.35; margin: 0 0 8px; font-weight: 700; overflow-wrap: anywhere; }
+  .info .meta { font-size: 12px; color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn {
     display: inline-flex; align-items: center; gap: 7px;
     border: 1px solid #ffffff1b; background: #15171d; border-radius: 8px;
     padding: 9px 12px; cursor: pointer; color: #d7d9e0;
-    font-size: 12px; text-decoration: none; white-space: nowrap;
-    transition: background .15s;
+    font-size: 12px; text-decoration: none; white-space: nowrap; transition: background .15s;
   }
   .btn:hover { background: #20232b; }
   .btn.primary { background: var(--accent); color: white; border-color: transparent; }
   .btn.primary:hover { background: #7b97ff; }
-  .error {
-    max-width: 1380px; margin: 0 auto; padding: 40px 20px;
-    text-align: center; color: var(--muted);
-  }
+  .error { max-width: 1380px; margin: 0 auto; padding: 40px 20px; text-align: center; color: var(--muted); }
   .error h2 { color: var(--text); font-size: 17px; margin: 0 0 8px; }
   .error p { font-size: 13px; line-height: 1.6; margin: 0 auto; max-width: 560px; }
-  .error code {
-    background: #ffffff10; padding: 2px 6px; border-radius: 5px;
-    font-size: 12px; color: #c8cbd5; word-break: break-all;
-  }
+  .error code { background: #ffffff10; padding: 2px 6px; border-radius: 5px; font-size: 12px; color: #c8cbd5; word-break: break-all; }
   .hidden { display: none !important; }
   @media (max-width: 760px) {
     .page { padding: 0 0 20px; }
@@ -199,8 +157,6 @@
   </form>
 
   <div id="playerContainer" class="player-wrap hidden">
-
-    <!-- ==== Селектор качества (только для HLS) ==== -->
     <div class="quality-selector hidden" id="qualitySelector">
       <button type="button" class="quality-btn" id="qualityBtn">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -211,8 +167,7 @@
       <div class="quality-menu hidden" id="qualityMenu"></div>
     </div>
 
-    <iframe
-      id="playerFrame"
+    <iframe id="playerFrame"
       allowfullscreen
       allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"
       referrerpolicy="origin"
@@ -223,6 +178,7 @@
       <div class="content">
         <div class="spinner"></div>
         <div>Загрузка видео…</div>
+        <div class="sub" id="loadingSub"></div>
       </div>
     </div>
   </div>
@@ -240,12 +196,8 @@
     <h1 id="pageTitle">Видео</h1>
     <div class="meta" id="pageMeta"></div>
     <div class="actions">
-      <a id="openExternal" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">
-        ↗ Открыть в новой вкладке
-      </a>
-      <a id="downloadLink" class="btn hidden" href="#" target="_blank" rel="noopener noreferrer">
-        ⬇ Скачать MP4
-      </a>
+      <a id="openExternal" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">↗ Открыть в новой вкладке</a>
+      <a id="downloadLink" class="btn hidden" href="#" target="_blank" rel="noopener noreferrer">⬇ Скачать MP4</a>
       <button class="btn" id="copyEmbed" type="button">📋 Скопировать embed-ссылку</button>
       <button class="btn" id="copyPage" type="button">🔗 Скопировать ссылку на страницу</button>
     </div>
@@ -258,8 +210,6 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
-
-  // DOM
   const manualForm      = $('manualForm');
   const manualUrlInput  = $('manualUrl');
   const playerContainer = $('playerContainer');
@@ -268,6 +218,7 @@
   const playerFrame     = $('playerFrame');
   const nativeVideo     = $('nativeVideo');
   const loadingOverlay  = $('loadingOverlay');
+  const loadingSub      = $('loadingSub');
   const errorTitle      = $('errorTitle');
   const errorMessage    = $('errorMessage');
   const pageTitle       = $('pageTitle');
@@ -275,13 +226,13 @@
   const topCaption      = $('topCaption');
   const openExternal    = $('openExternal');
   const downloadLink    = $('downloadLink');
-
   const qualitySelector = $('qualitySelector');
   const qualityBtn      = $('qualityBtn');
   const qualityLabel    = $('qualityLabel');
   const qualityMenu     = $('qualityMenu');
 
   let currentHls = null;
+  let currentBlobUrl = null;
   let playbackId = 0;
 
   // ============================================================
@@ -295,15 +246,239 @@
     return url;
   }
   function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function setLoading(active, sub) {
+    loadingOverlay.classList.toggle('active', !!active);
+    loadingSub.textContent = sub || '';
   }
   function formatLevelLabel(level) {
     if (level.height) return level.height + 'p';
     if (level.width && level.height) return level.width + '×' + level.height;
     if (level.bitrate) return Math.round(level.bitrate / 1000) + ' kbps';
+    if (level.name) return level.name;
     return '—';
+  }
+
+  // ============================================================
+  //  Парсер master.m3u8
+  // ============================================================
+  function parseAttrList(str) {
+    const attrs = {};
+    const re = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;
+    let m;
+    while ((m = re.exec(str))) {
+      let v = m[2];
+      if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+      attrs[m[1].toUpperCase()] = v;
+    }
+    return attrs;
+  }
+  function parseM3u8Variants(text, baseUrl) {
+    const lines = text.split(/\r?\n/);
+    const variants = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('#EXT-X-STREAM-INF:')) {
+        const attrs = parseAttrList(line.slice('#EXT-X-STREAM-INF:'.length));
+        for (let j = i + 1; j < lines.length; j++) {
+          const next = lines[j].trim();
+          if (next && !next.startsWith('#')) {
+            let abs;
+            try { abs = new URL(next, baseUrl).toString(); }
+            catch (e) { abs = next; }
+            variants.push({
+              url: abs,
+              bandwidth: parseInt(attrs.BANDWIDTH) || 0,
+              width: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[0]) : 0,
+              height: attrs.RESOLUTION ? parseInt(attrs.RESOLUTION.split('x')[1]) : 0,
+              name: attrs.NAME || '',
+            });
+            break;
+          }
+        }
+      }
+    }
+    return variants;
+  }
+
+  // ============================================================
+  //  Универсальное распознавание качества в URL
+  // ============================================================
+  // Пытаемся найти паттерн "XXXp" (XXX = 3-4 цифры) в пути или имени файла.
+  // Поддержка: /480p/, /480/, __480p., _480p., -480p., /480p.
+  function detectQualityInUrl(url) {
+    const patterns = [
+      /\/(\d{3,4})p\//i,
+      /\/(\d{3,4})\//i,
+      /__(\d{3,4})p\./i,
+      /_(\d{3,4})p\./i,
+      /-(\d{3,4})p\./i,
+      /\/(\d{3,4})p\./i,
+      /\/(\d{3,4})\.m3u8/i,
+    ];
+    for (const re of patterns) {
+      const m = re.exec(url);
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function replaceQuality(url, fromQ, toQ) {
+    const pairs = [
+      [new RegExp(`/${fromQ}p/`, 'g'), `/${toQ}p/`],
+      [new RegExp(`/${fromQ}/`, 'g'), `/${toQ}/`],
+      [new RegExp(`__${fromQ}p\\.`, 'g'), `__${toQ}p.`],
+      [new RegExp(`_${fromQ}p\\.`, 'g'), `_${toQ}p.`],
+      [new RegExp(`-${fromQ}p\\.`, 'g'), `-${toQ}p.`],
+      [new RegExp(`/${fromQ}p\\.`, 'g'), `/${toQ}p.`],
+      [new RegExp(`/${fromQ}\\.m3u8`, 'gi'), `/${toQ}.m3u8`],
+    ];
+    let out = url;
+    for (const [re, rep] of pairs) out = out.replace(re, rep);
+    return out;
+  }
+
+  const COMMON_QUALITIES = ['144','240','360','480','540','576','720','1080','1440','2160'];
+  const RES_MAP = {
+    '144':[256,144],'240':[426,240],'360':[640,360],'480':[854,480],
+    '540':[960,540],'576':[1024,576],'720':[1280,720],'1080':[1920,1080],
+    '1440':[2560,1440],'2160':[3840,2160],
+  };
+  const BW_MAP = {
+    '144':200000,'240':400000,'360':800000,'480':1200000,'540':1800000,
+    '576':2000000,'720':3000000,'1080':6000000,'1440':12000000,'2160':25000000,
+  };
+
+  // ============================================================
+  //  Проба соседних качеств
+  // ============================================================
+  async function probeUrl(url, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || 2500);
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        signal: ctrl.signal,
+        credentials: 'omit',
+        cache: 'no-store',
+      });
+      clearTimeout(t);
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      if (!text.trim().startsWith('#EXTM3U')) return null;
+      return text;
+    } catch (e) {
+      clearTimeout(t);
+      return null;
+    }
+  }
+
+  async function probeQualities(originalVariant, baseQuality) {
+    const found = [{ ...originalVariant, quality: baseQuality }];
+    const targets = COMMON_QUALITIES.filter(q => q !== baseQuality);
+    const probes = targets.map(q => {
+      const url = replaceQuality(originalVariant.url, baseQuality, q);
+      if (url === originalVariant.url) return null;
+      return probeUrl(url, 2500).then(text => {
+        if (!text) return null;
+        const [w, h] = RES_MAP[q] || [0, 0];
+        return {
+          url,
+          quality: q,
+          width: w, height: h,
+          bandwidth: BW_MAP[q] || 1000000,
+          name: q + 'p',
+        };
+      });
+    }).filter(Boolean);
+    const results = await Promise.all(probes);
+    for (const r of results) if (r) found.push(r);
+    // Сортируем по убыванию качества
+    found.sort((a, b) => (parseInt(b.quality)||0) - (parseInt(a.quality)||0));
+    return found;
+  }
+
+  // ============================================================
+  //  Синтетический master.m3u8
+  // ============================================================
+  function buildSyntheticMaster(variants) {
+    let out = '#EXTM3U\n#EXT-X-VERSION:3\n';
+    for (const v of variants) {
+      let attrs = [];
+      const bw = v.bandwidth || BW_MAP[v.quality] || 1000000;
+      attrs.push('BANDWIDTH=' + bw);
+      if (v.width && v.height) attrs.push('RESOLUTION=' + v.width + 'x' + v.height);
+      else {
+        const [w, h] = RES_MAP[v.quality] || [0, 0];
+        if (w && h) attrs.push('RESOLUTION=' + w + 'x' + h);
+      }
+      attrs.push('NAME=' + (v.name || v.quality + 'p'));
+      out += '#EXT-X-STREAM-INF:' + attrs.join(',') + '\n' + v.url + '\n';
+    }
+    return out;
+  }
+
+  // ============================================================
+  //  Умная загрузка HLS (с probing)
+  // ============================================================
+  async function loadHlsWithProbing(inputUrl) {
+    // 1. Пробуем скачать master
+    let masterText = null;
+    try {
+      const resp = await fetch(inputUrl, { credentials: 'omit', cache: 'no-store' });
+      if (resp.ok) masterText = await resp.text();
+    } catch (e) {
+      console.warn('Pre-fetch failed:', e);
+    }
+
+    if (!masterText) {
+      return { masterUrl: inputUrl, probedCount: 0 };
+    }
+
+    let variants = parseM3u8Variants(masterText, inputUrl);
+    const isMediaPlaylist = !/#EXT-X-STREAM-INF:/i.test(masterText);
+
+    // Если это media playlist — считаем его единственным "вариантом"
+    let existing;
+    if (isMediaPlaylist) {
+      const q = detectQualityInUrl(inputUrl);
+      existing = [{ url: inputUrl, quality: q, bandwidth: 0, width: 0, height: 0, name: q ? q + 'p' : '' }];
+    } else {
+      existing = variants.map(v => ({
+        ...v,
+        quality: detectQualityInUrl(v.url),
+      }));
+    }
+
+    // Если уже ≥2 варианта — не трогаем
+    if (existing.length > 1) {
+      return { masterUrl: inputUrl, probedCount: 0 };
+    }
+
+    // 2. Определяем паттерн качества
+    const single = existing[0];
+    const baseQ = single.quality;
+    if (!baseQ) {
+      return { masterUrl: inputUrl, probedCount: 0 };
+    }
+
+    // 3. Пробуем соседей
+    setLoading(true, 'Поиск дополнительных качеств…');
+    const probed = await probeQualities(single, baseQ);
+
+    if (probed.length <= 1) {
+      return { masterUrl: inputUrl, probedCount: 0 };
+    }
+
+    // 4. Собираем синтетический master
+    const synth = buildSyntheticMaster(probed);
+    const blob = new Blob([synth], { type: 'application/vnd.apple.mpegurl' });
+    const blobUrl = URL.createObjectURL(blob);
+    currentBlobUrl = blobUrl;
+
+    console.info('Probed variants:', probed.map(v => v.quality + 'p'));
+    return { masterUrl: blobUrl, probedCount: probed.length };
   }
 
   // ============================================================
@@ -315,7 +490,7 @@
     errorContainer.classList.remove('hidden');
     infoContainer.classList.add('hidden');
     playerContainer.classList.add('hidden');
-    loadingOverlay.classList.remove('active');
+    setLoading(false);
     topCaption.textContent = title;
     document.title = title + ' · R·Films Player';
     stopPlayback();
@@ -326,48 +501,18 @@
     playerContainer.classList.remove('hidden');
     errorContainer.classList.add('hidden');
   }
-  function setLoading(active) { loadingOverlay.classList.toggle('active', !!active); }
-
   function resetQualityUi() {
     qualitySelector.classList.add('hidden');
     qualityMenu.classList.add('hidden');
     qualityMenu.innerHTML = '';
     qualityLabel.textContent = 'Auto';
   }
-
   function stopPlayback() {
-    if (currentHls) {
-      try { currentHls.destroy(); } catch (e) {}
-      currentHls = null;
-    }
-    try {
-      nativeVideo.pause();
-      nativeVideo.removeAttribute('src');
-      nativeVideo.load();
-    } catch (e) {}
+    if (currentHls) { try { currentHls.destroy(); } catch (e) {} currentHls = null; }
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} currentBlobUrl = null; }
+    try { nativeVideo.pause(); nativeVideo.removeAttribute('src'); nativeVideo.load(); } catch (e) {}
     try { playerFrame.src = 'about:blank'; } catch (e) {}
     resetQualityUi();
-  }
-
-  // ============================================================
-  //  Определение типа (без белого списка)
-  // ============================================================
-  function detectSource(parsed) {
-    const path = parsed.pathname.toLowerCase();
-    if (/\.m3u8$/i.test(path)) return { type: 'hls' };
-    if (/\.(mp4|webm|ogg|mkv|m4v|mov)$/i.test(path)) return { type: 'mp4' };
-    // всё остальное — iframe embed
-    return { type: 'embed' };
-  }
-
-  function deriveTitle(parsed, detection, explicitTitle) {
-    if (explicitTitle) return explicitTitle;
-    if (detection.type === 'embed') return parsed.hostname;
-    const segs = parsed.pathname.split('/').filter(Boolean);
-    const file = segs[segs.length - 1] || '';
-    const base = file.replace(/\.(m3u8|mp4|webm|ogg|mkv|m4v|mov)$/i, '')
-                     .replace(/__master$/i, '');
-    return base || parsed.hostname;
   }
 
   // ============================================================
@@ -387,9 +532,8 @@
   // ============================================================
   function buildQualityMenu(hls, levels) {
     qualityMenu.innerHTML = '';
-    resetQualityUiStyles();
+    qualityLabel.textContent = 'Auto';
 
-    // Auto
     const autoBtn = document.createElement('button');
     autoBtn.type = 'button';
     autoBtn.dataset.level = '-1';
@@ -404,9 +548,7 @@
     });
     qualityMenu.appendChild(autoBtn);
 
-    // Сортировка: высокое → низкое
-    const sorted = levels
-      .map((lv, i) => ({ lv, i }))
+    const sorted = levels.map((lv, i) => ({ lv, i }))
       .sort((a, b) => (b.lv.height || b.lv.bitrate || 0) - (a.lv.height || a.lv.bitrate || 0));
 
     for (const { lv, i } of sorted) {
@@ -424,48 +566,39 @@
       qualityMenu.appendChild(btn);
     }
 
-    if (levels.length > 1) {
-      qualitySelector.classList.remove('hidden');
-    }
+    if (levels.length > 1) qualitySelector.classList.remove('hidden');
 
-    // Обновление подписи в режиме Auto
     hls.on(window.Hls.Events.LEVEL_SWITCHED, (_, data) => {
       if (hls.currentLevel === -1) {
         const lv = hls.levels[data.level];
-        if (lv && lv.height) qualityLabel.textContent = 'Auto · ' + lv.height + 'p';
-        else qualityLabel.textContent = 'Auto';
+        qualityLabel.textContent = (lv && lv.height) ? 'Auto · ' + lv.height + 'p' : 'Auto';
       }
     });
   }
-
-  function resetQualityUiStyles() {
-    qualityMenu.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    qualityLabel.textContent = 'Auto';
-  }
-
   function setActiveLevel(idx) {
     qualityMenu.querySelectorAll('button').forEach(b => {
       b.classList.toggle('active', b.dataset.level === String(idx));
     });
   }
-
   qualityBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (qualityMenu.children.length === 0) return;
     qualityMenu.classList.toggle('hidden');
   });
-  document.addEventListener('click', () => {
-    qualityMenu.classList.add('hidden');
-  });
+  document.addEventListener('click', () => qualityMenu.classList.add('hidden'));
 
   // ============================================================
   //  Воспроизведение
   // ============================================================
-  function playHls(url) {
+  async function playHls(url) {
     stopPlayback();
-    setLoading(true);
+    setLoading(true, 'Загрузка HLS…');
     showKind('video');
 
+    // 1. Умная загрузка с probing
+    const { masterUrl } = await loadHlsWithProbing(url);
+
+    // 2. Ждём hls.js и играем
     whenHlsReady(
       () => {
         if (window.Hls.isSupported()) {
@@ -475,15 +608,13 @@
             backBufferLength: 90,
           });
           currentHls = hls;
-          hls.loadSource(url);
+          hls.loadSource(masterUrl);
           hls.attachMedia(nativeVideo);
 
           hls.on(window.Hls.Events.MANIFEST_PARSED, (_, data) => {
             setLoading(false);
             nativeVideo.play().catch(() => {});
-            const levels = (data && data.levels && data.levels.length)
-              ? data.levels
-              : (hls.levels || []);
+            const levels = (data && data.levels && data.levels.length) ? data.levels : (hls.levels || []);
             if (levels.length) buildQualityMenu(hls, levels);
           });
 
@@ -493,7 +624,7 @@
             console.error('HLS fatal error:', data);
             let msg = 'Не удалось загрузить HLS-поток.';
             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-              msg = 'Сетевая ошибка HLS. Возможно, ссылка устарела, сегменты требуют query-параметр или блокируются CORS.';
+              msg = 'Сетевая ошибка HLS. Возможно, ссылка устарела, требует query-параметр или блокируется CORS.';
             } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
               msg = 'Ошибка медиа в HLS-потоке.';
             }
@@ -564,6 +695,25 @@
   }
 
   // ============================================================
+  //  Определение типа
+  // ============================================================
+  function detectSource(parsed) {
+    const path = parsed.pathname.toLowerCase();
+    if (/\.m3u8$/i.test(path)) return { type: 'hls' };
+    if (/\.(mp4|webm|ogg|mkv|m4v|mov)$/i.test(path)) return { type: 'mp4' };
+    return { type: 'embed' };
+  }
+  function deriveTitle(parsed, detection, explicitTitle) {
+    if (explicitTitle) return explicitTitle;
+    if (detection.type === 'embed') return parsed.hostname;
+    const segs = parsed.pathname.split('/').filter(Boolean);
+    const file = segs[segs.length - 1] || '';
+    const base = file.replace(/\.(m3u8|mp4|webm|ogg|mkv|m4v|mov)$/i, '')
+                     .replace(/__master$/i, '');
+    return base || parsed.hostname;
+  }
+
+  // ============================================================
   //  Загрузка
   // ============================================================
   function loadFromUrl(rawUrl, explicitTitle, explicitDownload) {
@@ -582,24 +732,17 @@
 
     const detection = detectSource(parsed);
     const title = deriveTitle(parsed, detection, explicitTitle);
-
     const typeLabel = detection.type === 'hls' ? 'HLS (m3u8)'
-                    : detection.type === 'mp4' ? 'MP4'
-                    : 'iframe';
-    const sourceLabel = parsed.hostname;
+                    : detection.type === 'mp4' ? 'MP4' : 'iframe';
 
-    // ---- Инфо-панель ----
     infoContainer.classList.remove('hidden');
     pageTitle.innerHTML = escapeHtml(title) + ' <span class="source-badge">' +
-                          escapeHtml(sourceLabel) + '</span>';
+                          escapeHtml(parsed.hostname) + '</span>';
     topCaption.textContent = title;
     document.title = title + ' · R·Films Player';
-
-    pageMeta.textContent = 'Источник: ' + sourceLabel + ' · Тип: ' + typeLabel +
-                          ' · ' + parsed.pathname;
+    pageMeta.textContent = 'Источник: ' + parsed.hostname + ' · Тип: ' + typeLabel + ' · ' + parsed.pathname;
     openExternal.href = url;
 
-    // Кнопка скачивания: явный ?download= > mp4 > скрыть
     let downloadHref = explicitDownload ? normalizeUrl(explicitDownload) : '';
     if (!downloadHref && detection.type === 'mp4') downloadHref = url;
     if (downloadHref) {
@@ -610,7 +753,6 @@
       downloadLink.classList.add('hidden');
     }
 
-    // ---- Запуск ----
     if (detection.type === 'hls') playHls(url);
     else if (detection.type === 'mp4') playMp4(url);
     else playEmbed(url);
@@ -685,15 +827,14 @@
     const rawEmbed    = (params.get('embed')    || '').trim();
     const rawTitle    = (params.get('title')    || '').trim();
     const rawDownload = (params.get('download') || '').trim();
-
     if (!rawEmbed) { manualUrlInput.focus(); return; }
-
     manualUrlInput.value = rawEmbed;
     loadFromUrl(rawEmbed, rawTitle, rawDownload);
   })();
 
   window.addEventListener('pagehide', () => {
     if (currentHls) { try { currentHls.destroy(); } catch (e) {} }
+    if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch (e) {} }
   });
 })();
 </script>
