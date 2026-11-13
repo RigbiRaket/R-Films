@@ -866,6 +866,10 @@
           <div class="settings-title">Качество</div>
           <div class="settings-options" id="qualityOptions"></div>
         </div>
+        <div class="settings-section hidden" id="audioSection">
+          <div class="settings-title">Озвучка</div>
+          <div class="settings-options" id="audioOptions"></div>
+        </div>
         <div class="settings-section">
           <div class="settings-title">Скорость</div>
           <div class="settings-options" id="speedOptions">
@@ -973,6 +977,8 @@
   const settingsPanel    = $('settingsPanel');
   const qualitySection   = $('qualitySection');
   const qualityOptions   = $('qualityOptions');
+  const audioSection     = $('audioSection');
+  const audioOptions     = $('audioOptions');
   const speedOptions     = $('speedOptions');
   const stepOptions      = $('stepOptions');
   const ambientToggle    = $('ambientToggle');
@@ -990,6 +996,7 @@
   let userSpeed = 1;
   let currentStep = 10;
   let currentUrl = '';
+  let audioNames = [];  // подписи озвучек из ссылки (&audio=...)
   let isSeeking = false;
   let showRemaining = false;
   let settingsOpen = false;
@@ -1346,28 +1353,91 @@
   // ============================================================
   //  Quality Menu
   // ============================================================
+  // Метка качества: NAME мастера, иначе группа аудио (audio1080/audio720/…),
+  // иначе — привычный ряд по ширине кадра (2.4:1 даёт высоту 800/534/300).
+  function qualityLabel(lv) {
+    if (lv.name) return lv.name;
+    const group = (lv.attrs && lv.attrs.AUDIO) || '';
+    const m = String(group).match(/(\d{3,4})/);
+    if (m) return m[1] + 'p';
+    const w = lv.width || 0;
+    const tiers = [[1900, '1080p'], [1200, '720p'], [900, '540p'],
+                   [760, '480p'], [600, '360p'], [400, '240p']];
+    for (const [min, label] of tiers) if (w >= min) return label;
+    return lv.height ? lv.height + 'p'
+                     : (lv.bitrate ? Math.round(lv.bitrate / 1000) + 'k' : '—');
+  }
+
   function buildQualityMenu(hls, levels) {
     qualityOptions.innerHTML = '';
     const autoBtn = document.createElement('button');
     autoBtn.textContent = 'Auto';
     autoBtn.className = 'active';
+    autoBtn.dataset.level = '-1';
     autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); });
     qualityOptions.appendChild(autoBtn);
 
-    const sorted = levels.map((lv, i) => ({ lv, i }))
-      .sort((a, b) => (b.lv.height || b.lv.bitrate || 0) - (a.lv.height || a.lv.bitrate || 0));
+    // Движок отдаёт по STREAM-INF на каждую аудиогруппу — уровни дублируются;
+    // в меню оставляем по одному на метку.
+    const seen = new Set();
+    const items = [];
+    levels.forEach((lv, i) => {
+      const label = qualityLabel(lv);
+      if (seen.has(label)) return;
+      seen.add(label);
+      items.push({ lv, i, label });
+    });
+    items.sort((a, b) => (b.lv.height || b.lv.bitrate || 0)
+                       - (a.lv.height || a.lv.bitrate || 0));
 
-    for (const { lv, i } of sorted) {
+    for (const { i, label } of items) {
       const btn = document.createElement('button');
-      btn.textContent = lv.height ? lv.height + 'p' : (lv.bitrate ? Math.round(lv.bitrate/1000) + 'k' : '—');
+      btn.textContent = label;
+      btn.dataset.level = String(i);
       btn.addEventListener('click', () => { hls.currentLevel = i; setActiveLevel(i); });
       qualityOptions.appendChild(btn);
     }
-    qualitySection.classList.toggle('hidden', levels.length <= 1);
+    qualitySection.classList.toggle('hidden', items.length <= 1);
   }
   function setActiveLevel(idx) {
-    qualityOptions.querySelectorAll('button').forEach((b, i) => {
-      b.classList.toggle('active', i === (idx === -1 ? 0 : idx + 1));
+    qualityOptions.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.level === String(idx));
+    });
+  }
+
+  function audioTrackLabel(tr, i) {
+    const named = audioNames[i];
+    if (named && named.toLowerCase() !== 'delete') return named;
+    return tr.name || tr.lang || ('Дорожка ' + (i + 1));
+  }
+  // Записи-«удалено» (служебный `delete` в данных движка) в меню не показываем:
+  // это дорожки, которые убрал сам движок.
+  function audioTrackHidden(i) {
+    return (audioNames[i] || '').toLowerCase() === 'delete';
+  }
+  // Озвучки — это аудиодорожки потока (#EXT-X-MEDIA:TYPE=AUDIO), поэтому
+  // меню показываем только когда доступных больше одной.
+  function buildAudioMenu(hls, tracks) {
+    audioOptions.innerHTML = '';
+    const list = tracks || [];
+    const visible = list.map((tr, i) => i).filter(i => !audioTrackHidden(i));
+    if (visible.length <= 1) {
+      audioSection.classList.add('hidden');
+      return;
+    }
+    visible.forEach(i => {
+      const btn = document.createElement('button');
+      btn.textContent = audioTrackLabel(list[i], i);
+      btn.dataset.track = String(i);
+      btn.addEventListener('click', () => { hls.audioTrack = i; setActiveAudio(i); });
+      audioOptions.appendChild(btn);
+    });
+    audioSection.classList.remove('hidden');
+    setActiveAudio(hls.audioTrack);
+  }
+  function setActiveAudio(i) {
+    audioOptions.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.track === String(i));
     });
   }
 
@@ -1494,7 +1564,13 @@
           setLoading(false);
           nativeVideo.play().catch(() => {});
           if (data?.levels) buildQualityMenu(hls, data.levels);
+          buildAudioMenu(hls, hls.audioTracks);
         });
+        hls.on(window.Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
+          buildAudioMenu(hls, (data && data.audioTracks) || hls.audioTracks);
+        });
+        hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED,
+               () => setActiveAudio(hls.audioTrack));
         hls.on(window.Hls.Events.ERROR, (_, data) => {
           if (data.fatal) { setLoading(false); showToast('Ошибка HLS потока'); }
         });
@@ -1551,6 +1627,7 @@
     try { nativeVideo.pause(); nativeVideo.removeAttribute('src'); nativeVideo.load(); } catch {}
     try { playerFrame.src = 'about:blank'; } catch {}
     qualitySection.classList.add('hidden');
+    audioSection.classList.add('hidden');
     playerContainer.classList.remove('embed-mode');
   }
 
@@ -1756,6 +1833,8 @@
     
     const params = new URLSearchParams(location.search);
     const embed = params.get('embed');
+    const audio = params.get('audio');
+    if (audio) audioNames = audio.split('|');
     if (embed) {
       manualUrlInput.value = embed;
       copyInputBtn.classList.remove('hidden');
