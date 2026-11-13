@@ -997,6 +997,8 @@
   let currentStep = 10;
   let currentUrl = '';
   let audioNames = [];  // подписи озвучек из ссылки (&audio=...)
+  let fallbackUrl = '';  // запасной iframe источника (&fallback=...; §13)
+  let fallbackUsed = false;  // фолбэк уже применён — не зацикливаемся
   let isSeeking = false;
   let showRemaining = false;
   let settingsOpen = false;
@@ -1462,7 +1464,12 @@
   async function loadHlsWithProbing(inputUrl) {
     let text = null;
     try {
-      const r = await fetch(inputUrl, { credentials: 'omit', cache: 'no-store' });
+      // §13: проба мастера не должна «вешаться» — иначе страница ждёт вечно.
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(inputUrl,
+        { credentials: 'omit', cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(t);
       if (r.ok) text = await r.text();
     } catch (e) {}
     if (!text) return { masterUrl: inputUrl };
@@ -1558,6 +1565,15 @@
       if (window.Hls.isSupported()) {
         const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
         currentHls = hls;
+        let gotFragment = false;
+        // §13: мастер может разобраться (качества/озвучки видны), а фрагменты
+        // источник отдаёт 4xx — тогда `duration` не появится. Если за 12 с ни
+        // один фрагмент не загрузился, уходим на запасной iframe (страж — на
+        // случай, когда hls.js не отдаёт fatal с кодом ответа).
+        const guard = setTimeout(() => {
+          if (!gotFragment && currentHls === hls) switchToFallback();
+        }, 12000);
+        hls.on(window.Hls.Events.FRAG_LOADED, () => { gotFragment = true; });
         hls.loadSource(masterUrl);
         hls.attachMedia(nativeVideo);
         hls.on(window.Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -1571,7 +1587,7 @@
         });
         hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED,
                () => setActiveAudio(hls.audioTrack));
-        const onHlsError = makeHlsErrorHandler(hls);
+        const onHlsError = makeHlsErrorHandler(hls, () => clearTimeout(guard));
         hls.on(window.Hls.Events.ERROR, (_, data) => onHlsError(data));
       } else {
         playHlsNative(url);
@@ -1579,14 +1595,31 @@
     });
   }
 
+  // §13: источник/CDN ограничил прямой поток (фрагменты отдают 4xx) —
+  // открываем запасной iframe источника. Показ важнее отсутствия рекламы;
+  // срабатывает один раз на ссылку. Без запасного URL просто снимаем спиннер.
+  function switchToFallback() {
+    if (!fallbackUrl || fallbackUsed) { setLoading(false); return; }
+    fallbackUsed = true;
+    showToast('Источник ограничил прямой поток — открываю плеер источника');
+    playEmbed(fallbackUrl);
+  }
+
   // Ошибки hls.js: не пугаем тостом на каждом fatal-событии, а сначала
   // пробуем восстановиться. Сеть — `startLoad` (догрузка), медиа —
   // `recoverMediaError`; тост — только когда попытки исчерпаны.
-  function makeHlsErrorHandler(hls) {
+  // §13: HTTP 4xx (фрагменты/мастер недоступны) ретраить бессмысленно —
+  // сразу отдаём управление запасному iframe источника.
+  function makeHlsErrorHandler(hls, onDone) {
     let netRetries = 0, mediaRetries = 0;
     const H = window.Hls;
+    const done = () => { if (onDone) onDone(); };
     return data => {
       if (!data || !data.fatal) return;
+      const code = data.response && data.response.code;
+      if (fallbackUrl && code >= 400 && code < 500) {
+        done(); switchToFallback(); return;
+      }
       if (data.type === H.ErrorTypes.NETWORK_ERROR && netRetries++ < 3) {
         hls.startLoad();
         return;
@@ -1595,6 +1628,8 @@
         hls.recoverMediaError();
         return;
       }
+      done();
+      if (fallbackUrl) { switchToFallback(); return; }
       setLoading(false);
       showToast('Ошибка HLS потока');
       try { hls.destroy(); } catch (e) {}
@@ -1606,6 +1641,12 @@
     nativeVideo.src = url;
     nativeVideo.addEventListener('loadedmetadata', () => {
       if (myId === playbackId) { setLoading(false); nativeVideo.play().catch(()=>{}); }
+    }, { once: true });
+    // §13: нативный HLS (Safari) не отдал поток — уходим на запасной iframe.
+    nativeVideo.addEventListener('error', () => {
+      if (myId !== playbackId) return;
+      if (fallbackUrl) { switchToFallback(); }
+      else { setLoading(false); showToast('Ошибка HLS потока'); }
     }, { once: true });
   }
 
@@ -1657,6 +1698,7 @@
     let parsed;
     try { parsed = new URL(url); } catch { return showToast('Некорректная ссылка'); }
     currentUrl = url;
+    fallbackUsed = false;  // новая ссылка — фолбэк снова доступен (§13)
     manualUrlInput.value = rawUrl;
     copyInputBtn.classList.remove('hidden');
     
@@ -1855,7 +1897,9 @@
     const params = new URLSearchParams(location.search);
     const embed = params.get('embed');
     const audio = params.get('audio');
+    const fallback = params.get('fallback');
     if (audio) audioNames = audio.split('|');
+    if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
     if (embed) {
       manualUrlInput.value = embed;
       copyInputBtn.classList.remove('hidden');
