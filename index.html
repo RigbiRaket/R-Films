@@ -1374,6 +1374,21 @@
   // ============================================================
   //  HLS / Source Loading
   // ============================================================
+  // Атрибуты тега HLS. Наивный split(',') ломается на запятой внутри
+  // кавычек (например CODECS="avc1.640028,mp4a.40.2") — отсюда падал
+  // разбор мастера и «бесконечная загрузка» (§8, ревизия v2.37.46).
+  function parseHlsAttrs(spec) {
+    const attrs = {};
+    const re = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;
+    let m;
+    while ((m = re.exec(spec))) {
+      let v = m[2];
+      if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+      attrs[m[1].toUpperCase()] = v.trim();
+    }
+    return attrs;
+  }
+
   async function loadHlsWithProbing(inputUrl) {
     let text = null;
     try {
@@ -1389,11 +1404,7 @@
       const lines = text.split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith('#EXT-X-STREAM-INF:')) {
-          const attrs = {};
-          lines[i].slice(18).split(',').forEach(pair => {
-            const [k, v] = pair.split('=');
-            if (k) attrs[k.trim()] = v.replace(/"/g, '').trim();
-          });
+          const attrs = parseHlsAttrs(lines[i].slice(18));
           for (let j = i + 1; j < lines.length; j++) {
             if (lines[j] && !lines[j].startsWith('#')) {
               variants.push({
@@ -1467,7 +1478,12 @@
     stopPlayback();
     setLoading(true);
     showKind('video');
-    const { masterUrl } = await loadHlsWithProbing(url);
+    let masterUrl = url;
+    try {
+      ({ masterUrl } = await loadHlsWithProbing(url));
+    } catch (e) {
+      masterUrl = url;  // сбой пробы не должен ломать воспроизведение
+    }
     whenHlsReady(() => {
       if (window.Hls.isSupported()) {
         const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
