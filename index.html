@@ -1571,13 +1571,34 @@
         });
         hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED,
                () => setActiveAudio(hls.audioTrack));
-        hls.on(window.Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) { setLoading(false); showToast('Ошибка HLS потока'); }
-        });
+        const onHlsError = makeHlsErrorHandler(hls);
+        hls.on(window.Hls.Events.ERROR, (_, data) => onHlsError(data));
       } else {
         playHlsNative(url);
       }
     });
+  }
+
+  // Ошибки hls.js: не пугаем тостом на каждом fatal-событии, а сначала
+  // пробуем восстановиться. Сеть — `startLoad` (догрузка), медиа —
+  // `recoverMediaError`; тост — только когда попытки исчерпаны.
+  function makeHlsErrorHandler(hls) {
+    let netRetries = 0, mediaRetries = 0;
+    const H = window.Hls;
+    return data => {
+      if (!data || !data.fatal) return;
+      if (data.type === H.ErrorTypes.NETWORK_ERROR && netRetries++ < 3) {
+        hls.startLoad();
+        return;
+      }
+      if (data.type === H.ErrorTypes.MEDIA_ERROR && mediaRetries++ < 2) {
+        hls.recoverMediaError();
+        return;
+      }
+      setLoading(false);
+      showToast('Ошибка HLS потока');
+      try { hls.destroy(); } catch (e) {}
+    };
   }
 
   function playHlsNative(url) {
