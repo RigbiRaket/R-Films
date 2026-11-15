@@ -1563,7 +1563,16 @@
     }
     whenHlsReady(() => {
       if (window.Hls.isSupported()) {
-        const hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+        // §14: у VeoVeo звук идёт отдельными аудиодорожками (#EXT-X-MEDIA
+        // TYPE=AUDIO). После перемотки hls.js иногда не подхватывает их
+        // заново — расширяем допуски по «дырам» буфера и неточной границе
+        // фрагмента, чтобы seek реже оставлял поток без звука/видео.
+        const hls = new window.Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          maxBufferHole: 0.5,
+          maxFragLookUpTolerance: 0.25,
+        });
         currentHls = hls;
         let gotFragment = false;
         // §13: мастер может разобраться (качества/озвучки видны), а фрагменты
@@ -1636,6 +1645,62 @@
     };
   }
 
+  // §14: перемотка на источнике с отдельными аудиодорожками (#EXT-X-MEDIA
+  // TYPE=AUDIO; так устроен VeoVeo) иногда «залипает»: после seek
+  // видеопоток и аудиодорожка перезагружаются несинхронно, и
+  // воспроизведение не стартует — ни видео, ни звук не декодируются.
+  // Лечим сторожем после перемотки: нет прогресса — по очереди
+  // перевыбираем аудиодорожку, догружаем поток (`startLoad`) и
+  // восстанавливаем медиа (`recoverMediaError`). Без перемотки и при
+  // паузе сторож молчит, поэтому штатное воспроизведение не трогаем.
+  let seekWatchdog = null;   // id таймера сторожа
+  let seekRecoverLevel = 0;  // 0 — перевыбор звука, 1 — startLoad, 2 — recover
+
+  function clearSeekWatchdog() {
+    if (seekWatchdog !== null) { clearTimeout(seekWatchdog); seekWatchdog = null; }
+    seekRecoverLevel = 0;
+  }
+
+  // hls.js игнорирует повторную установку той же дорожки, поэтому сбрасываем
+  // выбор (`-1` — «без звука») и сразу возвращаем прежнюю: это заставляет
+  // перечитать аудиоплейлист-часть, откуда и пропадал звук.
+  function reattachAudioTrack(hls) {
+    if (!hls || typeof hls.audioTrack !== 'number') return;
+    const idx = hls.audioTrack;
+    if (idx < 0 || !hls.audioTracks || hls.audioTracks.length <= 1) return;
+    hls.audioTrack = -1;
+    hls.audioTrack = idx;
+  }
+
+  function armSeekWatchdog(hls) {
+    if (seekWatchdog !== null) { clearTimeout(seekWatchdog); seekWatchdog = null; }
+    if (!hls || nativeVideo.paused) return;
+    const startTime = nativeVideo.currentTime;
+    seekWatchdog = setTimeout(() => {
+      seekWatchdog = null;
+      if (!hls || hls !== currentHls || nativeVideo.paused) return;
+      const moved = nativeVideo.currentTime - startTime;
+      if (moved > 0.4 && nativeVideo.readyState >= 3) { seekRecoverLevel = 0; return; }
+      if (seekRecoverLevel === 0) {
+        reattachAudioTrack(hls);
+      } else if (seekRecoverLevel === 1) {
+        try { hls.startLoad(); } catch (e) {}
+      } else if (seekRecoverLevel === 2) {
+        try { hls.recoverMediaError(); } catch (e) {}
+      } else {
+        return;  // попытки исчерпаны — дальше обработчик fatal-ошибок
+      }
+      seekRecoverLevel++;
+      armSeekWatchdog(hls);
+    }, 3000);
+  }
+
+  // Слушатели вешаем один раз: сторож работает с текущим (`currentHls`)
+  // потоком, поэтому переживает многократные playHls без накопления.
+  nativeVideo.addEventListener('seeking', () => clearSeekWatchdog());
+  nativeVideo.addEventListener('seeked', () => armSeekWatchdog(currentHls));
+  nativeVideo.addEventListener('pause', () => clearSeekWatchdog());
+
   function playHlsNative(url) {
     const myId = ++playbackId;
     nativeVideo.src = url;
@@ -1684,6 +1749,7 @@
   }
 
   function stopPlayback() {
+    clearSeekWatchdog();
     if (currentHls) { try { currentHls.destroy(); } catch {} currentHls = null; }
     if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} currentBlobUrl = null; }
     try { nativeVideo.pause(); nativeVideo.removeAttribute('src'); nativeVideo.load(); } catch {}
