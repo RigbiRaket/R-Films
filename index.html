@@ -489,6 +489,23 @@
   }
   #skipFwdBtn svg { transform: scaleX(-1); }
 
+  /* U26: переключатель серий внутри плеера (вариант D) */
+  .ep-nav { display: inline-flex; align-items: center; gap: 4px; }
+  .ctrl-btn.ep-nav-btn {
+    width: auto;
+    min-width: 40px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .ctrl-btn.ep-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+    background: transparent;
+    color: #fff;
+  }
+
   .time-display {
     font-size: 13px;
     font-weight: 600;
@@ -566,6 +583,10 @@
     padding: 8px;
     z-index: 30;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    /* U26: со списком серий панель стала выше окна — прокручиваем её. */
+    max-height: calc(100% - 88px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     animation: settings-in 0.15s ease-out;
   }
   @keyframes settings-in {
@@ -821,6 +842,10 @@
             <span class="time-sep">/</span>
             <span id="timeTotal">0:00</span>
           </div>
+          <div class="ep-nav hidden" id="epNav">
+            <button class="ctrl-btn ep-nav-btn" id="prevEpBtn" title="Предыдущая серия">◀ Серия</button>
+            <button class="ctrl-btn ep-nav-btn" id="nextEpBtn" title="Следующая серия">Серия ▶</button>
+          </div>
           <div class="spacer"></div>
           <div class="volume-wrap" id="volumeWrap">
             <button class="ctrl-btn" id="muteBtn" title="Звук (M)">
@@ -862,6 +887,14 @@
       </div>
 
       <div class="settings-panel hidden" id="settingsPanel">
+        <div class="settings-section hidden" id="seasonSection">
+          <div class="settings-title">Сезон</div>
+          <div class="settings-options" id="seasonOptions"></div>
+        </div>
+        <div class="settings-section hidden" id="episodeSection">
+          <div class="settings-title">Серия</div>
+          <div class="settings-options" id="episodeOptions"></div>
+        </div>
         <div class="settings-section hidden" id="qualitySection">
           <div class="settings-title">Качество</div>
           <div class="settings-options" id="qualityOptions"></div>
@@ -979,6 +1012,13 @@
   const qualityOptions   = $('qualityOptions');
   const audioSection     = $('audioSection');
   const audioOptions     = $('audioOptions');
+  const seasonSection    = $('seasonSection');
+  const seasonOptions    = $('seasonOptions');
+  const episodeSection   = $('episodeSection');
+  const episodeOptions   = $('episodeOptions');
+  const epNav            = $('epNav');
+  const prevEpBtn        = $('prevEpBtn');
+  const nextEpBtn        = $('nextEpBtn');
   const speedOptions     = $('speedOptions');
   const stepOptions      = $('stepOptions');
   const ambientToggle    = $('ambientToggle');
@@ -999,6 +1039,13 @@
   let audioNames = [];  // подписи озвучек из ссылки (&audio=...)
   let fallbackUrl = '';  // запасной iframe источника (&fallback=...; §13)
   let fallbackUsed = false;  // фолбэк уже применён — не зацикливаемся
+  // U26: навигация серий внутри плеера (вариант D) — список серий страница
+  // берёт сама у catalog-api движка (в ссылке только id тайтла и база API).
+  let catalogApi = '';       // база catalog-api (&capi=...)
+  let contentId = '';        // внутренний id тайтла у движка (&cid=...)
+  let curSeason = null;      // текущий сезон
+  let curEpisode = null;     // текущая серия
+  let episodesIndex = null;  // {seasons: [...], bySeason: {сезон: [{ep, title, url}]}}
   let isSeeking = false;
   let showRemaining = false;
   let settingsOpen = false;
@@ -1442,6 +1489,155 @@
       b.classList.toggle('active', b.dataset.track === String(i));
     });
   }
+
+  // ============================================================
+  //  U26: Навигация серий (вариант D)
+  //  В ссылке — только id тайтла (&cid=) и база catalog-api (&capi=);
+  //  список сезонов/серий страница запрашивает сама. Подписанные ссылки
+  //  серий меняются от запроса к запросу, поэтому текущую серию определяем
+  //  по номерам (&sea=/&epi=), а не сопоставлением URL.
+  // ============================================================
+  function pickEpisodeUrl(episode) {
+    const variants = ((episode && episode.episodeVariants) || [])
+      .filter(v => v && v.filepath);
+    if (!variants.length) return '';
+    let best = variants[0];
+    for (const v of variants) {
+      if ((+v.duration || 0) > (+best.duration || 0)) best = v;
+    }
+    return best.filepath || '';
+  }
+
+  function buildEpisodesIndex(list) {
+    const bySeason = {};
+    (list || []).forEach(episode => {
+      if (!episode) return;
+      const season = (episode.season && +episode.season.order) || 1;
+      const number = +episode.order || 0;
+      const url = pickEpisodeUrl(episode);
+      if (!number || !url) return;
+      (bySeason[season] || (bySeason[season] = [])).push({
+        ep: number, title: String(episode.title || ''), url,
+      });
+    });
+    Object.keys(bySeason).forEach(s => bySeason[s].sort((a, b) => a.ep - b.ep));
+    const seasons = Object.keys(bySeason).map(Number).sort((a, b) => a - b);
+    return { seasons, bySeason };
+  }
+
+  function seasonEpisodes(season) {
+    return (episodesIndex && episodesIndex.bySeason[season]) || [];
+  }
+
+  function flatEpisodes() {
+    const out = [];
+    if (episodesIndex) {
+      episodesIndex.seasons.forEach(s => {
+        seasonEpisodes(s).forEach(item =>
+          out.push({ season: s, ep: item.ep, url: item.url }));
+      });
+    }
+    return out;
+  }
+
+  function renderEpisodeNav() {
+    if (!episodesIndex) return;
+    const list = seasonEpisodes(curSeason);
+    const flat = flatEpisodes();
+    const pos = flat.findIndex(x => x.season === curSeason && x.ep === curEpisode);
+    epNav.classList.remove('hidden');
+    prevEpBtn.disabled = pos <= 0;
+    nextEpBtn.disabled = pos < 0 || pos >= flat.length - 1;
+
+    seasonOptions.innerHTML = '';
+    episodesIndex.seasons.forEach(s => {
+      const b = document.createElement('button');
+      b.textContent = 'Сезон ' + s;
+      b.className = s === curSeason ? 'active' : '';
+      b.addEventListener('click', () => {
+        curSeason = s;
+        const first = seasonEpisodes(s)[0];
+        if (first) {
+          playEpisode(first.ep);          // сразу открываем первую серию сезона
+        } else {
+          curEpisode = null;
+          renderEpisodeNav();
+        }
+      });
+      seasonOptions.appendChild(b);
+    });
+    seasonSection.classList.toggle('hidden', episodesIndex.seasons.length <= 1);
+
+    episodeOptions.innerHTML = '';
+    list.forEach(item => {
+      const b = document.createElement('button');
+      b.textContent = String(item.ep);
+      if (item.title) b.title = item.title;
+      b.className = item.ep === curEpisode ? 'active' : '';
+      b.addEventListener('click', () => playEpisode(item.ep));
+      episodeOptions.appendChild(b);
+    });
+    episodeSection.classList.toggle('hidden', !list.length);
+  }
+
+  // Переключение серии без выхода из плеера: подменяем `embed` в адресной
+  // строке (чтобы «Скопировать ссылку» отдавала текущую серию) и играем поток.
+  function playEpisode(episode) {
+    const item = seasonEpisodes(curSeason).find(x => x.ep === episode);
+    if (!item || !item.url) return;
+    curEpisode = episode;
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('embed', item.url);
+      u.searchParams.set('sea', String(curSeason));
+      u.searchParams.set('epi', String(episode));
+      history.replaceState(null, '', u.toString());
+    } catch (e) {}
+    manualUrlInput.value = item.url;
+    loadFromUrl(item.url);
+    renderEpisodeNav();
+    if (settingsOpen) toggleSettings(false);
+  }
+
+  // Соседняя серия: переходим через границу сезонов (последняя серия сезона
+  // → первая следующего).
+  function stepEpisode(delta) {
+    const flat = flatEpisodes();
+    const pos = flat.findIndex(x => x.season === curSeason && x.ep === curEpisode);
+    if (pos < 0) return;
+    const next = flat[pos + delta];
+    if (!next) return;
+    curSeason = next.season;
+    playEpisode(next.ep);
+  }
+
+  async function loadEpisodeNav() {
+    if (!catalogApi || !contentId) return;
+    try {
+      const url = catalogApi + '/episodes?content-id=' +
+                  encodeURIComponent(contentId);
+      const r = await fetch(url, { credentials: 'omit', cache: 'no-store' });
+      if (!r.ok) return;
+      const list = await r.json();
+      if (!Array.isArray(list) || !list.length) return;
+      const index = buildEpisodesIndex(list);
+      if (!index.seasons.length) return;
+      episodesIndex = index;
+      if (curSeason == null || !index.bySeason[curSeason]) {
+        curSeason = index.seasons[0];
+      }
+      const list2 = seasonEpisodes(curSeason);
+      if (curEpisode == null || !list2.some(x => x.ep === curEpisode)) {
+        curEpisode = list2.length ? list2[0].ep : null;
+      }
+      renderEpisodeNav();
+    } catch (e) {
+      // API недоступен — навигации просто нет, воспроизведение не трогаем.
+    }
+  }
+
+  prevEpBtn.addEventListener('click', () => stepEpisode(-1));
+  nextEpBtn.addEventListener('click', () => stepEpisode(1));
 
   // ============================================================
   //  HLS / Source Loading
@@ -1966,11 +2162,22 @@
     const fallback = params.get('fallback');
     if (audio) audioNames = audio.split('|');
     if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
+    // U26: навигация серий (вариант D) — id тайтла, база catalog-api и
+    // текущие сезон/серия; список серий подтянет `loadEpisodeNav`.
+    const cid = params.get('cid');
+    const capi = params.get('capi');
+    if (cid) contentId = cid;
+    if (capi) catalogApi = capi.replace(/\/+$/, '');
+    const sea = parseInt(params.get('sea'), 10);
+    const epi = parseInt(params.get('epi'), 10);
+    if (sea > 0) curSeason = sea;
+    if (epi > 0) curEpisode = epi;
     if (embed) {
       manualUrlInput.value = embed;
       copyInputBtn.classList.remove('hidden');
       loadFromUrl(embed);
     }
+    if (contentId && catalogApi) loadEpisodeNav();
   })();
 
 })();
