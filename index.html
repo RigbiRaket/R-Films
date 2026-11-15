@@ -1039,6 +1039,7 @@
   let audioNames = [];  // подписи озвучек из ссылки (&audio=...)
   let fallbackUrl = '';  // запасной iframe источника (&fallback=...; §13)
   let fallbackUsed = false;  // фолбэк уже применён — не зацикливаемся
+  let mp4Guard = null;  // U31: сторож прямого MP4 (нет метаданных → фолбэк)
   // U26: навигация серий внутри плеера (вариант D) — список серий страница
   // берёт сама у catalog-api движка (в ссылке только id тайтла и база API).
   let catalogApi = '';       // база catalog-api (&capi=...)
@@ -1911,6 +1912,9 @@
     }, { once: true });
   }
 
+  // U31: прямой MP4 может не отдаться вовсе — CDN отдаёт 4xx (анти-хотлинк)
+  // или просто «молчит» по тайм-ауту (гео-ограничение). Тогда уходим на
+  // запасной iframe источника (§13): `error` ловит отказ, сторож — тишину.
   function playMp4(url) {
     stopPlayback();
     setLoading(true);
@@ -1918,8 +1922,24 @@
     const myId = ++playbackId;
     nativeVideo.src = url;
     nativeVideo.addEventListener('loadedmetadata', () => {
-      if (myId === playbackId) { setLoading(false); nativeVideo.play().catch(()=>{}); }
+      if (myId !== playbackId) return;
+      if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
+      setLoading(false); nativeVideo.play().catch(()=>{});
     }, { once: true });
+    nativeVideo.addEventListener('error', () => {
+      if (myId !== playbackId) return;
+      if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
+      if (fallbackUrl) { switchToFallback(); }
+      else { setLoading(false); showToast('Не удалось открыть видео'); }
+    }, { once: true });
+    // Некоторые CDN не отдают ошибку, а держат соединение: `error` не придёт,
+    // и спиннер висел бы вечно. Если за 12 с метаданные не появились — фолбэк.
+    mp4Guard = setTimeout(() => {
+      mp4Guard = null;
+      if (myId !== playbackId || nativeVideo.readyState >= 1) return;
+      if (fallbackUrl) { switchToFallback(); }
+      else { setLoading(false); showToast('Видео недоступно'); }
+    }, 12000);
   }
 
   function playEmbed(url) {
@@ -1946,6 +1966,7 @@
 
   function stopPlayback() {
     clearSeekWatchdog();
+    if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
     if (currentHls) { try { currentHls.destroy(); } catch {} currentHls = null; }
     if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} currentBlobUrl = null; }
     try { nativeVideo.pause(); nativeVideo.removeAttribute('src'); nativeVideo.load(); } catch {}
