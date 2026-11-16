@@ -794,7 +794,8 @@
     transition: color 0.15s;
   }
   .time-display:hover { color: var(--accent); }
-  .time-sep { color: rgba(255,255,255,0.4); margin: 0 3px; }
+  /* Шаг 8.4: контраст разделителя времени ≥ 4.5:1 (при 0.4 было ~3.8:1). */
+  .time-sep { color: rgba(255,255,255,0.6); margin: 0 3px; }
 
   .spacer { flex: 1; }
 
@@ -1284,6 +1285,12 @@
       scroll-behavior: auto !important;
     }
   }
+  /* Шаг 8.2: видимый фокус при навигации с клавиатуры (мышь/тап не трогаем).
+     `button { outline:none }` перебивается псевдоклассом (специфичность выше). */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Ползунки тонкие — подсвечиваем всю обёртку, когда фокус внутри. */
+  .progress-wrapper:focus-within,
+  .volume-wrap:focus-within { box-shadow: 0 0 0 2px var(--accent); border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -1312,7 +1319,7 @@
 
   <div class="player-outer" id="playerOuter">
     <div class="player-container" id="playerContainer">
-      <video id="nativeVideo" class="hidden" playsinline preload="metadata"></video>
+      <video id="nativeVideo" class="hidden" playsinline preload="metadata" aria-label="Видеоплеер"></video>
       <iframe id="playerFrame" class="hidden"
         allowfullscreen
         allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"
@@ -1336,7 +1343,7 @@
         <div class="seek-preview-time" id="seekPreviewTime">0:00</div>
       </div>
 
-      <button class="lock-btn" id="lockBtn" title="Заблокировать интерфейс">
+      <button class="lock-btn" id="lockBtn" title="Заблокировать интерфейс" aria-label="Заблокировать интерфейс" aria-pressed="false">
         <svg class="icon-unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -1399,19 +1406,19 @@
             <div class="progress-fill" id="progressFill"></div>
           </div>
           <div class="progress-thumb" id="progressThumb"></div>
-          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0">
+          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
         </div>
         <div class="ctrl-row">
           <!-- 8.x: переключатель серий — слева/справа от кнопок перемотки у паузы. -->
           <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14.5 7 9.5 12 14.5 17"/></svg></button>
-          <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (J)">
+          <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (J)" aria-label="Назад на 10 секунд">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
             </svg>
             <span class="skip-label" id="skipBackLabel">10</span>
           </button>
-          <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)">
+          <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)" aria-label="Воспроизвести">
             <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
             </svg>
@@ -1419,7 +1426,7 @@
               <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
             </svg>
           </button>
-          <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (L)">
+          <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (L)" aria-label="Вперёд на 10 секунд">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
@@ -1434,7 +1441,7 @@
           </div>
           <div class="spacer"></div>
           <div class="volume-wrap" id="volumeWrap">
-            <button class="ctrl-btn" id="muteBtn" title="Звук (M)">
+            <button class="ctrl-btn" id="muteBtn" title="Звук (M)" aria-label="Выключить звук" aria-pressed="false">
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
                 <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
@@ -1446,16 +1453,16 @@
                 <line x1="17" y1="9" x2="23" y2="15"/>
               </svg>
             </button>
-            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" aria-label="Громкость">
             <div class="volume-tooltip" id="volumeTooltip">100%</div>
           </div>
-          <button class="ctrl-btn" id="settingsBtn" title="Настройки">
+          <button class="ctrl-btn" id="settingsBtn" title="Настройки" aria-label="Настройки" aria-expanded="false" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </button>
-          <button class="ctrl-btn" id="fullscreenBtn" title="На весь экран (F)">
+          <button class="ctrl-btn" id="fullscreenBtn" title="На весь экран (F)" aria-label="На весь экран" aria-pressed="false">
             <svg class="icon-fs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
               <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
@@ -1477,7 +1484,7 @@
             </svg>
           </button>
           <!-- Шаг 7.4: режим «Театр/Фокус» — прячем всё, кроме видео. -->
-          <button class="ctrl-btn" id="theaterBtn" title="Театр/Фокус (T)" aria-label="Режим театра">
+          <button class="ctrl-btn" id="theaterBtn" title="Театр/Фокус (T)" aria-label="Режим театра" aria-pressed="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="3" width="20" height="18" rx="2" stroke-dasharray="3 3"/>
               <rect x="6" y="7" width="12" height="10" rx="1"/>
@@ -1486,7 +1493,7 @@
         </div>
       </div>
 
-      <div class="settings-panel hidden" id="settingsPanel">
+      <div class="settings-panel hidden" id="settingsPanel" role="dialog" aria-label="Настройки">
         <!-- 8.x: ряд иконок. Первая иконка — плеерные тумблеры. -->
         <div class="settings-grid" id="settingsGrid">
           <button class="settings-nav-btn" data-target="togglesSection" data-title="Плеер" title="Плеер" aria-label="Плеер">
@@ -1557,20 +1564,20 @@
               <span class="speed-value" id="speedValue">1.00×</span>
             </div>
             <div class="settings-options" id="speedOptions">
-              <button data-speed="0.5">0.5×</button>
-              <button data-speed="1" class="active">1×</button>
-              <button data-speed="1.5">1.5×</button>
-              <button data-speed="2">2×</button>
+              <button data-speed="0.5" aria-pressed="false">0.5×</button>
+              <button data-speed="1" class="active" aria-pressed="true">1×</button>
+              <button data-speed="1.5" aria-pressed="false">1.5×</button>
+              <button data-speed="2" aria-pressed="false">2×</button>
             </div>
           </div>
           <div class="settings-section" id="stepSection">
             <div class="settings-title">Шаг перемотки</div>
             <div class="settings-options" id="stepOptions">
-              <button data-step="5">5 с</button>
-              <button data-step="10" class="active">10 с</button>
-              <button data-step="15">15 с</button>
-              <button data-step="30">30 с</button>
-              <button data-step="60">60 с</button>
+              <button data-step="5" aria-pressed="false">5 с</button>
+              <button data-step="10" class="active" aria-pressed="true">10 с</button>
+              <button data-step="15" aria-pressed="false">15 с</button>
+              <button data-step="30" aria-pressed="false">30 с</button>
+              <button data-step="60" aria-pressed="false">60 с</button>
             </div>
           </div>
         </div>
@@ -1585,7 +1592,7 @@
         <circle cx="12" cy="12" r="3"/>
       </svg>
     </button>
-    <button type="button" class="copy-input-btn hidden" id="copyInputBtn" title="Скопировать ссылку">
+    <button type="button" class="copy-input-btn hidden" id="copyInputBtn" title="Скопировать ссылку" aria-label="Скопировать ссылку">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -1761,12 +1768,29 @@
   };
   // Шаг 3.4: тост нейтральный; красный — только для ошибок.
   // Шаг 3.2: с флагом `retry` показываем оверлей с действиями вместо тоста.
+  // Шаг 8.3: единый «живой регион» создаём заранее — тогда скринридер
+  // объявляет и самый первый тост (обновление уже существующего узла).
+  const ensureToast = () => {
+    let t = document.querySelector('.toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.className = 'toast';
+      t.setAttribute('role', 'status');
+      t.setAttribute('aria-live', 'polite');
+      t.setAttribute('aria-atomic', 'true');
+      document.body.appendChild(t);
+    }
+    return t;
+  };
   const showToast = (msg, opts) => {
     if (opts && opts.retry) { showErrorOverlay(msg); return; }
-    let t = document.querySelector('.toast');
-    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    const isError = !!(opts && opts.error);
+    // Шаг 8.3: тост — «живой регион»; скринридер прочитает и нейтральные, и ошибки.
+    const t = ensureToast();
+    t.setAttribute('role', isError ? 'alert' : 'status');
+    t.setAttribute('aria-live', isError ? 'assertive' : 'polite');
     t.textContent = msg;
-    t.classList.toggle('toast-error', !!(opts && opts.error));
+    t.classList.toggle('toast-error', isError);
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
@@ -1902,6 +1926,9 @@
     playerContainer.classList.toggle('locked', isLocked);
     lockBtn.querySelector('.icon-unlocked').classList.toggle('hidden', isLocked);
     lockBtn.querySelector('.icon-locked').classList.toggle('hidden', !isLocked);
+    // Шаг 8.1/8.5: состояние замка для скринридера.
+    lockBtn.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+    lockBtn.setAttribute('aria-label', isLocked ? 'Разблокировать интерфейс' : 'Заблокировать интерфейс');
     if (isLocked) {
       // 8.x: при блокировке интерфейса закрываем и панель настроек.
       if (settingsOpen) toggleSettings(false);
@@ -2110,11 +2137,13 @@
   nativeVideo.addEventListener('play', () => {
     iconPlay.classList.add('hidden');
     iconPause.classList.remove('hidden');
+    playBtn.setAttribute('aria-label', 'Пауза');   // Шаг 8.1
     updatePausedClass();
   });
   nativeVideo.addEventListener('pause', () => {
     iconPlay.classList.remove('hidden');
     iconPause.classList.add('hidden');
+    playBtn.setAttribute('aria-label', 'Воспроизвести');   // Шаг 8.1
     updatePausedClass();
   });
 
@@ -2124,8 +2153,12 @@
 
   function updateVolumeIcon() {
     const v = nativeVideo.muted ? 0 : nativeVideo.volume;
-    iconVol.classList.toggle('hidden', v === 0);
-    iconMute.classList.toggle('hidden', v > 0);
+    const muted = v === 0;
+    iconVol.classList.toggle('hidden', muted);
+    iconMute.classList.toggle('hidden', !muted);
+    // Шаг 8.1/8.5: имя и состояние кнопки звука для скринридера.
+    muteBtn.setAttribute('aria-label', muted ? 'Включить звук' : 'Выключить звук');
+    muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
   }
   // 8.x-fix: ширина кружка ползунка громкости (совпадает с CSS: 12px, 16px на тач).
   function volumeThumbWidth() {
@@ -2191,6 +2224,9 @@
   function setFsIcon(fs) {
     iconFs.classList.toggle('hidden', fs);
     iconFsExit.classList.toggle('hidden', !fs);
+    // Шаг 8.1/8.5: состояние кнопки фуллскрина.
+    fullscreenBtn.setAttribute('aria-label', fs ? 'Выйти из полноэкранного режима' : 'На весь экран');
+    fullscreenBtn.setAttribute('aria-pressed', fs ? 'true' : 'false');
   }
   function syncFsIcon() {
     setFsIcon(!!(document.fullscreenElement || document.webkitFullscreenElement));
@@ -2233,6 +2269,7 @@
     theaterMode = typeof force === 'boolean' ? force : !theaterMode;
     document.body.classList.toggle('theater', theaterMode);
     theaterBtn.classList.toggle('active', theaterMode);
+    theaterBtn.setAttribute('aria-pressed', theaterMode ? 'true' : 'false');   // Шаг 8.5
     if (theaterMode) showControls();
   }
   theaterBtn.addEventListener('click', () => toggleTheater());
@@ -2275,7 +2312,9 @@
 
   function setActiveNav(btn) {
     settingsGrid.querySelectorAll('.settings-nav-btn').forEach(b => {
-      b.classList.toggle('active', b === btn);
+      const on = b === btn;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // Шаг 8.5
     });
   }
   function openSettingsSection(section, btn) {
@@ -2350,7 +2389,9 @@
     try { nativeVideo.defaultPlaybackRate = rate; } catch {}
     if (!pointerDown || pointerDown.mode !== 'speed') nativeVideo.playbackRate = rate;
     speedOptions.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', parseFloat(b.dataset.speed) === rate);
+      const on = parseFloat(b.dataset.speed) === rate;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // Шаг 8.5
     });
     // 8.x: ползунок плавной подстройки и подпись синхронны со скоростью.
     if (speedRange) speedRange.value = rate;
@@ -2369,8 +2410,13 @@
     currentStep = sec;
     skipBackLabel.textContent = sec;
     skipFwdLabel.textContent = sec;
+    // Шаг 8.1: озвучиваем перемотку с текущим шагом.
+    skipBackBtn.setAttribute('aria-label', 'Назад на ' + sec + ' секунд');
+    skipFwdBtn.setAttribute('aria-label', 'Вперёд на ' + sec + ' секунд');
     stepOptions.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', parseInt(b.dataset.step, 10) === sec);
+      const on = parseInt(b.dataset.step, 10) === sec;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // Шаг 8.5
     });
   }
   stepOptions.addEventListener('click', e => {
@@ -2382,16 +2428,23 @@
   //  Settings Panel
   // ============================================================
   function toggleSettings(force) {
+    const hadFocus = settingsPanel.contains(document.activeElement);   // Шаг 8.2
     settingsOpen = typeof force === 'boolean' ? force : !settingsOpen;
     settingsPanel.classList.toggle('hidden', !settingsOpen);
+    settingsBtn.setAttribute('aria-expanded', settingsOpen ? 'true' : 'false');   // Шаг 8.2
     if (settingsOpen) {
       playerContainer.classList.add('controls-visible');
       clearTimeout(controlsHideTimer);
       // 8.x-fix: открываем сразу вкладку «Качество».
       openDefaultSettingsSection();
+      // Шаг 8.2: уводим фокус в панель, чтобы Tab ходил по её элементам.
+      const first = settingsPanel.querySelector('.settings-nav-btn:not(.hidden)');
+      if (first) { try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); } }
     } else {
       // 8.x: закрывая меню, сворачиваем раскрытый раздел.
       closeSettingsSection();
+      // Шаг 8.2: возвращаем фокус на кнопку настроек.
+      if (hadFocus) { try { settingsBtn.focus({ preventScroll: true }); } catch (e) {} }
       showControls();
     }
   }
@@ -2400,6 +2453,26 @@
     if (settingsOpen && !e.target.closest('.settings-panel') && !e.target.closest('#settingsBtn')) toggleSettings(false);
   });
   settingsPanel.addEventListener('click', e => e.stopPropagation());
+
+  // Шаг 8.2: ловушка фокуса и Esc внутри открытой панели настроек.
+  function settingsFocusables() {
+    return Array.from(settingsPanel.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter(el => !el.disabled && el.offsetParent !== null);
+  }
+  document.addEventListener('keydown', e => {
+    if (!settingsOpen) return;
+    if (e.code === 'Escape' || e.key === 'Escape') { e.preventDefault(); toggleSettings(false); return; }
+    if (e.code !== 'Tab' && e.key !== 'Tab') return;
+    const f = settingsFocusables();
+    if (!f.length) return;
+    // Индексный обход: Tab всегда остаётся внутри панели (по кругу).
+    e.preventDefault();
+    let idx = f.indexOf(document.activeElement);
+    if (idx === -1) idx = e.shiftKey ? 0 : -1;
+    const next = (idx + (e.shiftKey ? -1 : 1) + f.length) % f.length;
+    f[next].focus();
+  });
 
   async function copyText(text) {
     let ok = false;
@@ -2482,6 +2555,7 @@
     autoBtn.textContent = 'Auto';
     autoBtn.className = 'active';
     autoBtn.dataset.level = '-1';
+    autoBtn.setAttribute('aria-pressed', 'true');   // Шаг 8.5
     autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); savePrefs({ level: 'Auto' }); });
     qualityOptions.appendChild(autoBtn);
     qualityAutoBtn = autoBtn;
@@ -2503,6 +2577,7 @@
       const btn = document.createElement('button');
       btn.textContent = label;
       btn.dataset.level = String(i);
+      btn.setAttribute('aria-pressed', 'false');   // Шаг 8.5
       btn.addEventListener('click', () => { hls.currentLevel = i; setActiveLevel(i); savePrefs({ level: label }); });
       qualityOptions.appendChild(btn);
     }
@@ -2517,7 +2592,9 @@
   }
   function setActiveLevel(idx) {
     qualityOptions.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', b.dataset.level === String(idx));
+      const on = b.dataset.level === String(idx);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // Шаг 8.5
     });
   }
 
@@ -2561,6 +2638,7 @@
       const btn = document.createElement('button');
       btn.textContent = label;
       btn.dataset.track = String(i);
+      btn.setAttribute('aria-pressed', 'false');   // Шаг 8.5
       btn.addEventListener('click', () => selectAudio(hls, i, label));
       audioOptions.appendChild(btn);
     });
@@ -2574,7 +2652,9 @@
   }
   function setActiveAudio(i) {
     audioOptions.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', b.dataset.track === String(i));
+      const on = b.dataset.track === String(i);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // Шаг 8.5
     });
   }
 
@@ -2672,7 +2752,9 @@
     episodesIndex.seasons.forEach(s => {
       const b = document.createElement('button');
       b.textContent = 'Сезон ' + s;
-      b.className = s === navSeason ? 'active' : '';
+      const onSeason = s === navSeason;
+      b.className = onSeason ? 'active' : '';
+      b.setAttribute('aria-pressed', onSeason ? 'true' : 'false');   // Шаг 8.5
       // 8.x-fix: выбор сезона только переключает список серий (видео не трогаем),
       // чтобы можно было спокойно выбрать серию внутри сезона.
       b.addEventListener('click', () => {
@@ -2693,7 +2775,9 @@
       b.textContent = name ? (item.ep + '. ' + name)
                            : (item.title || (item.ep + ' серия'));
       b.title = item.ep + ' серия' + (name ? ' · ' + name : '');
-      b.className = (navSeason === curSeason && item.ep === curEpisode) ? 'active' : '';
+      const onEp = navSeason === curSeason && item.ep === curEpisode;
+      b.className = onEp ? 'active' : '';
+      b.setAttribute('aria-pressed', onEp ? 'true' : 'false');   // Шаг 8.5
       b.addEventListener('click', () => { curSeason = navSeason; playEpisode(item.ep); });
       episodeOptions.appendChild(b);
     });
@@ -3318,6 +3402,7 @@
   document.addEventListener('keydown', e => {
     if (document.activeElement.tagName === 'INPUT' || isLocked) return;
     if (playerContainer.classList.contains('embed-mode')) return;
+    if (settingsOpen) return;   // Шаг 8.2: в меню настроек горячие клавиши не перехватываем
     switch (e.code) {
       case 'Space':
         e.preventDefault();
@@ -3359,6 +3444,7 @@
   document.addEventListener('keyup', e => {
     if (document.activeElement.tagName === 'INPUT' || isLocked) return;
     if (playerContainer.classList.contains('embed-mode')) return;
+    if (settingsOpen) return;   // Шаг 8.2
     if (e.code === 'Space') {
       e.preventDefault();
       if (spaceHeld) {
@@ -3806,6 +3892,7 @@
   (function init() {
     setStep(10);
     updateVolumeIcon();
+    ensureToast();   // Шаг 8.3: живой регион готов сразу — первый тост тоже озвучится
     // Шаг 6.4: уважаем системную настройку «меньше движения».
     try {
       const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
