@@ -1977,6 +1977,7 @@
     manualUrlInput.value = item.url;
     loadFromUrl(item.url);
     renderEpisodeNav();
+    updateTitleForEpisode();  // Шаг 5.4: шапка не врёт про S/E после переключения
     if (settingsOpen) toggleSettings(false);
   }
 
@@ -2548,8 +2549,21 @@
         break;
       case 'KeyM': e.preventDefault(); muteBtn.click(); break;
       case 'KeyF': e.preventDefault(); toggleFullscreen(); break;
-      case 'ArrowLeft': e.preventDefault(); skipBy(-currentStep); break;
-      case 'ArrowRight': e.preventDefault(); skipBy(currentStep); break;
+      case 'KeyN': e.preventDefault(); stepEpisode(1); break;   // Шаг 5.2
+      case 'KeyP': e.preventDefault(); stepEpisode(-1); break;  // Шаг 5.2
+      case 'KeyJ': e.preventDefault(); skipBy(-10); break;      // Шаг 5.3
+      case 'KeyL': e.preventDefault(); skipBy(10); break;       // Шаг 5.3
+      case 'KeyK': e.preventDefault(); togglePlay(); break;     // Шаг 5.3
+      case 'Comma': e.preventDefault(); frameStep(-1); break;   // Шаг 5.3
+      case 'Period': e.preventDefault(); frameStep(1); break;   // Шаг 5.3
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (e.shiftKey) stepEpisode(-1); else skipBy(-currentStep);  // Шаг 5.2
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (e.shiftKey) stepEpisode(1); else skipBy(currentStep);    // Шаг 5.2
+        break;
     }
   });
   document.addEventListener('keyup', e => {
@@ -2754,6 +2768,28 @@
   nextGoBtn.addEventListener('click', () => { cancelAutoNext(); stepEpisode(1); });
   nextCancelBtn.addEventListener('click', cancelAutoNext);
   autoNextToggle.addEventListener('change', () => { autoNext = autoNextToggle.checked; saveSettings(); });
+
+  // ============================================================
+  //  Шаг 5.2–5.4: клавиатура серий/YouTube-паттерн и заголовок
+  // ============================================================
+  let pageTitleBase = '';  // название тайтла без суффикса S/E
+  function applyTitle(text) {
+    if (!text) return;
+    document.title = text + ' — R·Films';
+    titleBar.textContent = text;
+    titleBar.classList.remove('hidden');
+  }
+  // Шаг 5.4: при переключении серии внутри плеера обновляем шапку.
+  function updateTitleForEpisode() {
+    if (!pageTitleBase || curSeason == null || curEpisode == null) return;
+    applyTitle(pageTitleBase + ' — S' + curSeason + 'E' + curEpisode);
+  }
+  // Шаг 5.3: покадровый шаг (,/. в YouTube).
+  function frameStep(dir) {
+    if (nativeVideo.classList.contains('hidden')) return;
+    nativeVideo.pause();
+    seekToTime(nativeVideo.currentTime + dir / 30);
+  }
   nativeVideo.addEventListener('timeupdate', () => savePosition(false));
   nativeVideo.addEventListener('pause', () => savePosition(true));
   nativeVideo.addEventListener('ended', () => {
@@ -2782,11 +2818,12 @@
     if (audio) audioNames = audio.split('|');
     if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
     // Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт «Название — Озвучка — S1E2»).
+    // Шаг 5.4: базовое название (без S/E) запоминаем, чтобы обновлять при смене серии.
     const pageTitle = (params.get('title') || '').trim();
     if (pageTitle) {
-      document.title = pageTitle + ' — R·Films';
-      titleBar.textContent = pageTitle;
-      titleBar.classList.remove('hidden');
+      const se = pageTitle.match(/^(.*?)[\s—–-]+S(\d+)E(\d+)$/);
+      pageTitleBase = se ? se[1].trim() : pageTitle;
+      applyTitle(pageTitle);
     }
     // Шаг 1.2: кнопка «Скачать» — только для прямого потока (`&download=`).
     // `.m3u8` в download бот не кладёт (`make_stream` это запрещает), но
