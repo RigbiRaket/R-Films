@@ -344,8 +344,10 @@
     transition: opacity 0.2s, background 0.15s, transform 0.15s;
     backdrop-filter: blur(8px);
   }
+  /* 8.x-fix: замочек в блокировке прячется по бездействию (класс `lock-visible`
+     ставит JS на движение мыши) и снова показывается, когда мышь указывает на него. */
   .player-container:hover .lock-btn,
-  .player-container.locked .lock-btn {
+  .player-container.lock-visible .lock-btn {
     opacity: 1;
   }
   .lock-btn:hover { background: rgba(40, 42, 50, 0.9); }
@@ -532,7 +534,7 @@
   }
   .center-status.show { opacity: 1; }
   .center-status svg { width: 40px; height: 40px; color: #fff; }
-  .center-status .cs-play { margin-left: 5px; }
+  /* 8.x-fix: треугольник «play» оптически по центру (bbox 6.5–17.5 → центр 12). */
   .player-container.embed-mode .center-status,
   .player-container.locked .center-status { display: none !important; }
 
@@ -799,6 +801,55 @@
     align-items: center;
     gap: 4px;
   }
+  /* 8.x-fix: выбор озвучки — кнопка+выпадающий список слева от громкости. */
+  .audio-pick-wrap { position: relative; display: flex; align-items: center; }
+  .audio-pick-btn {
+    width: auto;
+    max-width: 150px;
+    padding: 0 10px;
+    gap: 6px;
+    display: flex;
+    align-items: center;
+  }
+  .audio-pick-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .audio-pick-btn .audio-pick-label {
+    font-size: 12px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .audio-picker {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    min-width: 150px;
+    max-width: 240px;
+    max-height: 45vh;
+    overflow-y: auto;
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 6px;
+    z-index: 40;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .audio-picker button {
+    text-align: left;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .audio-picker button:hover { background: rgba(255,255,255,0.12); }
+  .audio-picker button.active { background: var(--accent); color: #000; font-weight: 700; }
   .volume-slider {
     width: 72px;
     height: 4px;
@@ -822,9 +873,9 @@
   }
   .volume-tooltip {
     position: absolute;
-    /* 8.x-fix: подсказку поднимаем НАД полосой перемотки (как у перемотки),
-       точную позицию считает JS — здесь только запасное значение. */
-    bottom: calc(100% + 42px);
+    /* 8.x-fix: подсказка сидит СРАЗУ НАД ползунком громкости, точную позицию
+       считает JS (низ → верх ползунка + отступ); здесь запасное значение. */
+    bottom: 30px;
     transform: translateX(-50%);
     background: var(--panel);
     border: 1px solid var(--accent-dim);
@@ -1086,6 +1137,12 @@
   }
   .input-toggle-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
   .input-toggle-btn svg { width: 20px; height: 20px; }
+  /* 8.x-fix: свёрнутое поле — «глазик» тускнеет, почти незаметен. */
+  .bottom-input.collapsed .input-toggle-btn {
+    background: transparent;
+    border-color: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.25);
+  }
   .bottom-input.collapsed { width: auto; }
   .bottom-input.collapsed input,
   .bottom-input.collapsed .copy-input-btn,
@@ -1162,6 +1219,9 @@
     .ep-nav-label { display: none; }
     .player-container.has-episodes .skip-btn { display: none; }
     .volume-slider { display: none; }
+    /* 8.x-fix: озвучка на узком экране — только иконкой (подпись не влезает). */
+    .audio-pick-btn { padding: 0 8px; }
+    .audio-pick-btn .audio-pick-label { display: none; }
     #theaterBtn { display: none; }
     /* Шаг 7.1: панель настроек не воюет с нижней строкой — держим сверху
        (и чистим кнопку «Скачать» сверху справа). */
@@ -1277,7 +1337,7 @@
       </button>
 
       <div class="center-status" id="centerStatus" aria-hidden="true">
-        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/></svg>
         <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
       </div>
 
@@ -1348,6 +1408,14 @@
             <span id="timeTotal">0:00</span>
           </div>
           <div class="spacer"></div>
+          <!-- 8.x-fix: список озвучек — слева от регулятора громкости. -->
+          <div class="audio-pick-wrap hidden" id="audioPickWrap">
+            <button class="ctrl-btn audio-pick-btn" id="audioPickBtn" title="Озвучка" aria-label="Выбор озвучки" aria-haspopup="listbox" aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+              <span class="audio-pick-label" id="audioPickLabel">Озвучка</span>
+            </button>
+            <div class="audio-picker hidden" id="audioPicker" role="listbox" aria-label="Список озвучек"></div>
+          </div>
           <div class="volume-wrap" id="volumeWrap">
             <button class="ctrl-btn" id="muteBtn" title="Звук (M)">
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1413,7 +1481,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
           </button>
           <button class="settings-nav-btn" data-target="speedSection" data-title="Скорость" title="Скорость" aria-label="Скорость">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14.5" r="6"/><path d="M9.4 9.6C8.2 8 7.4 5.6 8.2 4.4c.6-.9 1.9-.6 2.4.6.5 1.1.7 2.7.6 4.2"/><path d="M14.6 9.6c1.2-1.6 2-4 1.2-5.2-.6-.9-1.9-.6-2.4.6-.5 1.1-.7 2.7-.6 4.2"/><circle cx="10" cy="14" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="14" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 12.2C2.4 11.3 3.2 10.2 4.6 10c1.8-.3 5-.4 7.9.2"/><path d="M12.5 10.2c1.9.4 4.1.4 5.7 2 .8.8.8 1.5-.8 2"/><path d="M17.4 14.2c-1.4.5-4.9.4-6.9.4-2.5 0-4.7-.4-6.3-1.4"/><path d="M4.2 13.2 2.8 12.2"/><path d="M5.2 10.4C4.6 7.6 5.2 5 6.6 4.9c1.1-.1 1.5 1.9 1.2 4.3"/><path d="M7.9 10.5c.4-2.9 1.7-5 3.1-4.6 1.2.3 1 2.4-.2 4.9"/><path d="M7 14.6 4.4 18.2"/><path d="M9.4 14.7 8.6 18.9"/><path d="M15.5 14.7 18.6 18.2"/><path d="M13.6 14.7 13.9 19"/><circle cx="4" cy="11.8" r=".5" fill="currentColor" stroke="none"/><circle cx="18.9" cy="11.9" r="1"/></svg>
           </button>
           <button class="settings-nav-btn" data-target="stepSection" data-title="Шаг перемотки" title="Шаг перемотки" aria-label="Шаг перемотки">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -1431,7 +1499,7 @@
           <div class="settings-section" id="togglesSection">
             <label class="settings-toggle">
               <span>Ambient-подсветка</span>
-              <input type="checkbox" id="ambientToggle">
+              <input type="checkbox" id="ambientToggle" checked>
               <span class="toggle-switch"></span>
             </label>
             <label class="settings-toggle">
@@ -1492,8 +1560,8 @@
   <form class="bottom-input" id="manualForm" autocomplete="off">
     <button type="button" class="input-toggle-btn" id="inputToggleBtn" aria-label="Показать или скрыть поле ввода ссылки" aria-expanded="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
+        <circle cx="12" cy="12" r="3"/>
       </svg>
     </button>
     <button type="button" class="copy-input-btn hidden" id="copyInputBtn" title="Скопировать ссылку">
@@ -1584,6 +1652,10 @@
   const qualityOptions   = $('qualityOptions');
   const audioSection     = $('audioSection');
   const audioOptions     = $('audioOptions');
+  const audioPickWrap    = $('audioPickWrap');
+  const audioPickBtn     = $('audioPickBtn');
+  const audioPickLabel   = $('audioPickLabel');
+  const audioPicker      = $('audioPicker');
   const seasonSection    = $('seasonSection');
   const seasonOptions    = $('seasonOptions');
   const episodeSection   = $('episodeSection');
@@ -1784,8 +1856,8 @@
   nativeVideo.addEventListener('play', updatePausedClass);
   nativeVideo.addEventListener('pause', updatePausedClass);
   
-  playerContainer.addEventListener('mousemove', showControls);
-  playerContainer.addEventListener('mouseleave', hideControlsNow);
+  playerContainer.addEventListener('mousemove', () => { showControls(); showLockBtn(); });
+  playerContainer.addEventListener('mouseleave', () => { hideControlsNow(); hideLockBtn(); });
   controlsEl.addEventListener('mouseenter', () => {
     clearTimeout(controlsHideTimer);
     if (!playerContainer.classList.contains('embed-mode')) {
@@ -1806,10 +1878,26 @@
       // 8.x: при блокировке интерфейса закрываем и панель настроек.
       if (settingsOpen) toggleSettings(false);
       playerContainer.classList.remove('controls-visible');
+      // 8.x-fix: показываем замочек и запускаем таймер автоскрытия.
+      showLockBtn();
     } else {
+      hideLockBtn();
       showControls();
     }
   });
+  // 8.x-fix: замочек в блокировке прячется по бездействию; появится при движении
+  // мыши (или когда она указывает на сам замочек — это обычный `:hover`).
+  let lockHideTimer = null;
+  function showLockBtn() {
+    if (!isLocked) return;
+    playerContainer.classList.add('lock-visible');
+    clearTimeout(lockHideTimer);
+    lockHideTimer = setTimeout(hideLockBtn, 2500);
+  }
+  function hideLockBtn() {
+    clearTimeout(lockHideTimer);
+    playerContainer.classList.remove('lock-visible');
+  }
 
   // ============================================================
   //  Ambient Mode
@@ -2004,10 +2092,9 @@
     const wrapRect = $('volumeWrap').getBoundingClientRect();
     volumeTooltip.style.left = (thumbPos - wrapRect.left) + 'px';
     volumeTooltip.textContent = Math.round(v * 100) + '%';
-    // 8.x-fix: подсказку поднимаем над полосой перемотки (как у перемотки) —
-    // не накрывает ни ползунок громкости, ни полосу.
-    const pr = progressWrapper.getBoundingClientRect();
-    volumeTooltip.style.bottom = (wrapRect.bottom - pr.top + 10) + 'px';
+    // 8.x-fix: подсказка — СРАЗУ НАД ползунком громкости (как в красной рамке),
+    // а не над полосой перемотки: `bottom` отсчитываем от низа обёртки до верха ползунка.
+    volumeTooltip.style.bottom = (wrapRect.bottom - rect.top + 6) + 'px';
   }
   volumeSlider.addEventListener('input', () => {
     const v = volumeSlider.value / 100;
@@ -2169,6 +2256,15 @@
       closeSettingsSection();
     }
   }
+  // 8.x-fix: при открытии настроек по умолчанию раскрыт раздел «Качество»
+  // (если качества нет — первый доступный раздел).
+  function openDefaultSettingsSection() {
+    const qBtn = settingsGrid.querySelector('.settings-nav-btn[data-target="qualitySection"]');
+    if (qBtn && !qBtn.classList.contains('hidden')) { openSettingsSection(qualitySection, qBtn); return; }
+    const first = Array.from(settingsGrid.querySelectorAll('.settings-nav-btn[data-target]'))
+      .find(b => !b.classList.contains('hidden'));
+    if (first) openSettingsSection($(first.dataset.target), first);
+  }
   settingsGrid.addEventListener('click', e => {
     const btn = e.target.closest('.settings-nav-btn');
     if (!btn) return;
@@ -2235,6 +2331,8 @@
     if (settingsOpen) {
       playerContainer.classList.add('controls-visible');
       clearTimeout(controlsHideTimer);
+      // 8.x-fix: открываем сразу вкладку «Качество».
+      openDefaultSettingsSection();
     } else {
       // 8.x: закрывая меню, сворачиваем раскрытый раздел.
       closeSettingsSection();
@@ -2384,35 +2482,86 @@
   }
   // Озвучки — это аудиодорожки потока (#EXT-X-MEDIA:TYPE=AUDIO), поэтому
   // меню показываем только когда доступных больше одной.
+  // 8.x-fix: тот же список дублируем в быстром выпадающем меню слева от громкости.
+  function selectAudio(hls, i, label) {
+    try { hls.audioTrack = i; } catch (e) {}
+    setActiveAudio(i);
+    if (typeof label === 'string' && label) {
+      audioPickLabel.textContent = label;
+      savePrefs({ audio: label });
+    } else {
+      const active = audioOptions.querySelector('button[data-track="' + i + '"]');
+      if (active) audioPickLabel.textContent = active.textContent;
+    }
+  }
   function buildAudioMenu(hls, tracks) {
     audioOptions.innerHTML = '';
+    audioPicker.innerHTML = '';
     const list = tracks || [];
     const visible = list.map((tr, i) => i).filter(i => !audioTrackHidden(i));
     if (visible.length <= 1) {
       audioSection.classList.add('hidden');
+      audioPickWrap.classList.add('hidden');
+      closeAudioPicker();
       return;
     }
     visible.forEach(i => {
-      const btn = document.createElement('button');
       const label = audioTrackLabel(list[i], i);
+      // Кнопка в панели настроек.
+      const btn = document.createElement('button');
       btn.textContent = label;
       btn.dataset.track = String(i);
-      btn.addEventListener('click', () => { hls.audioTrack = i; setActiveAudio(i); savePrefs({ audio: label }); });
+      btn.addEventListener('click', () => selectAudio(hls, i, label));
       audioOptions.appendChild(btn);
+      // Пункт быстрого меню рядом с громкостью.
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.textContent = label;
+      item.dataset.track = String(i);
+      item.setAttribute('role', 'option');
+      item.addEventListener('click', () => { selectAudio(hls, i, label); closeAudioPicker(); });
+      audioPicker.appendChild(item);
     });
     audioSection.classList.remove('hidden');
+    audioPickWrap.classList.remove('hidden');
     // Шаг 4.3: вспоминаем выбранную озвучку этого тайтла.
     const savedAudio = (store.read(titleKey(), null) || {}).audio;
     const pick = savedAudio && Array.from(audioOptions.querySelectorAll('button'))
       .find(b => b.textContent === savedAudio);
-    if (pick) { hls.audioTrack = parseInt(pick.dataset.track, 10); setActiveAudio(pick.dataset.track); }
-    else setActiveAudio(hls.audioTrack);
+    if (pick) selectAudio(hls, parseInt(pick.dataset.track, 10), pick.textContent);
+    else selectAudio(hls, hls.audioTrack);
   }
   function setActiveAudio(i) {
     audioOptions.querySelectorAll('button').forEach(b => {
       b.classList.toggle('active', b.dataset.track === String(i));
     });
+    audioPicker.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.track === String(i));
+    });
+    // 8.x-fix: подпись кнопки у громкости — текущая озвучка.
+    const act = audioOptions.querySelector('button[data-track="' + i + '"]');
+    if (act) audioPickLabel.textContent = act.textContent;
   }
+  // 8.x-fix: быстрое меню озвучек рядом с громкостью.
+  let audioPickerOpen = false;
+  function openAudioPicker() {
+    audioPickerOpen = true;
+    audioPicker.classList.remove('hidden');
+    audioPickBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeAudioPicker() {
+    audioPickerOpen = false;
+    audioPicker.classList.add('hidden');
+    audioPickBtn.setAttribute('aria-expanded', 'false');
+  }
+  audioPickBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (audioPickerOpen) closeAudioPicker(); else openAudioPicker();
+  });
+  audioPicker.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', e => {
+    if (audioPickerOpen && !e.target.closest('#audioPickWrap')) closeAudioPicker();
+  });
 
   // ============================================================
   //  U26: Навигация серий (вариант D)
@@ -2928,6 +3077,10 @@
     try { playerFrame.src = 'about:blank'; } catch {}
     qualitySection.classList.add('hidden');
     audioSection.classList.add('hidden');
+    // 8.x-fix: чистим и быстрое меню озвучек.
+    audioPickWrap.classList.add('hidden');
+    audioPicker.innerHTML = '';
+    closeAudioPicker();
     playerContainer.classList.remove('embed-mode');
     playerOuter.style.aspectRatio = '';  // Шаг 7.5: до метаданных — снова 16:9
   }
@@ -3214,6 +3367,7 @@
     volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
     updateVolumeIcon();
     if (s.ambient === true) { ambientToggle.checked = true; startAmbient(); }
+    else if (s.ambient === false) { ambientToggle.checked = false; }
     // Шаг 5.1: автопереход серий (по умолчанию включён).
     if (typeof s.autonext === 'boolean') { autoNext = s.autonext; autoNextToggle.checked = autoNext; }
     // Шаг 7.5: «Заполнить экран» (object-fit: cover).
@@ -3372,6 +3526,8 @@
     updateVolumeIcon();
     // Шаг 4: восстанавливаем настройки и подчищаем устаревшие позиции.
     restoreSettings();
+    // 8.x-fix: ambient-подсветка включена по умолчанию (пока пользователь не выключил).
+    if (ambientToggle.checked) startAmbient();
     store.prune(POS_TTL);
     // Шаг 7.3: поле ввода ссылки — на узком экране свёрнуто (если выбор не сохранён).
     const savedInputCollapsed = (store.read('settings', null) || {}).inputCollapsed;
