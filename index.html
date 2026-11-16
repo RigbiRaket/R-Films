@@ -511,6 +511,31 @@
     to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   }
 
+  /* 8.x: индикатор по центру экрана — «пауза», пока ролик на паузе, и
+     треугольник «play» на секунду при старте воспроизведения. */
+  .center-status {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    display: grid;
+    place-items: center;
+    z-index: 34;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .center-status.show { opacity: 1; }
+  .center-status svg { width: 40px; height: 40px; color: #fff; }
+  .center-status .cs-play { margin-left: 5px; }
+  .player-container.embed-mode .center-status,
+  .player-container.locked .center-status { display: none !important; }
+
   /* ====== Error Overlay (Шаг 3.2) ====== */
   .error-overlay {
     position: absolute;
@@ -913,30 +938,7 @@
   .settings-title.clickable:hover { color: var(--text); }
   .settings-title .chev { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.15s; }
   .settings-section.collapsed .settings-title .chev { transform: rotate(-90deg); }
-  .settings-section.collapsed > .settings-options,
-  .settings-section.collapsed > .hotkeys { display: none; }
-
-  /* Шаг 7.6: блок «Горячие клавиши» (подписи видно, не в тултипе). */
-  .hotkeys { display: flex; flex-direction: column; gap: 5px; }
-  .hotkey-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .hotkey-row kbd {
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
-    color: #fff;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.16);
-    border-radius: 4px;
-    padding: 1px 6px;
-    white-space: nowrap;
-  }
+  .settings-section.collapsed > .settings-options { display: none; }
 
   .copy-link-btn {
     width: 100%;
@@ -1201,6 +1203,11 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       </button>
 
+      <div class="center-status" id="centerStatus" aria-hidden="true">
+        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+      </div>
+
       <div class="error-overlay hidden" id="errorOverlay" role="alertdialog" aria-label="Ошибка воспроизведения">
         <div class="error-box">
           <div class="error-title" id="errorTitle">Не удалось воспроизвести</div>
@@ -1384,20 +1391,6 @@
             <span>Скопировать ссылку</span>
           </button>
         </div>
-        <!-- Шаг 7.6: шпаргалка по горячим клавишам. -->
-        <div class="settings-section">
-          <div class="settings-title">Горячие клавиши</div>
-          <div class="hotkeys">
-            <div class="hotkey-row"><span>Пуск / пауза</span><kbd>Space</kbd></div>
-            <div class="hotkey-row"><span>±10 секунд</span><kbd>J / L</kbd></div>
-            <div class="hotkey-row"><span>Предыдущая серия</span><kbd>P</kbd></div>
-            <div class="hotkey-row"><span>Следующая серия</span><kbd>N</kbd></div>
-            <div class="hotkey-row"><span>Кадр назад / вперёд</span><kbd>, / .</kbd></div>
-            <div class="hotkey-row"><span>Звук</span><kbd>M</kbd></div>
-            <div class="hotkey-row"><span>Полный экран</span><kbd>F</kbd></div>
-            <div class="hotkey-row"><span>Театр / фокус</span><kbd>T</kbd></div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -1451,6 +1444,7 @@
   const sourceChip       = $('sourceChip');
   const sourceChipText   = $('sourceChipText');
   const bigPlay          = $('bigPlay');
+  const centerStatus     = $('centerStatus');
   const errorOverlay     = $('errorOverlay');
   const errorTitle       = $('errorTitle');
   const errorRetryBtn    = $('errorRetryBtn');
@@ -1609,6 +1603,34 @@
   }
   bigPlay.addEventListener('click', () => { autoplay(); });
   nativeVideo.addEventListener('play', hideBigPlay);
+
+  // ============================================================
+  //  8.x: индикатор по центру — «пауза» на паузе, «play» на старте
+  // ============================================================
+  const centerStatusPlay  = centerStatus.querySelector('.cs-play');
+  const centerStatusPause = centerStatus.querySelector('.cs-pause');
+  let centerStatusTimer = null;
+  function showCenterStatus(kind) {
+    centerStatusPlay.classList.toggle('hidden', kind !== 'play');
+    centerStatusPause.classList.toggle('hidden', kind !== 'pause');
+    centerStatus.classList.add('show');
+    clearTimeout(centerStatusTimer);
+    // Треугольник виден секунду; «пауза» держится, пока ролик на паузе.
+    if (kind === 'play') {
+      centerStatusTimer = setTimeout(() => centerStatus.classList.remove('show'), 900);
+    }
+  }
+  function hideCenterStatus() {
+    clearTimeout(centerStatusTimer);
+    centerStatus.classList.remove('show');
+  }
+  nativeVideo.addEventListener('play', () => showCenterStatus('play'));
+  nativeVideo.addEventListener('pause', () => {
+    if (nativeVideo.ended) return;   // конец ролика — это не «пауза»
+    if (nativeVideo.classList.contains('hidden')) return;
+    showCenterStatus('pause');
+  });
+  nativeVideo.addEventListener('ended', hideCenterStatus);
 
   // ============================================================
   //  Шаг 3.2: оверлей ошибки с действиями
@@ -2718,6 +2740,7 @@
       nativeVideo.classList.add('hidden');
       playerFrame.classList.remove('hidden');
       setLoading(false);
+      hideCenterStatus();
       playerContainer.classList.remove('controls-visible', 'paused', 'locked');
       if (settingsOpen) toggleSettings(false);
     }
@@ -2727,6 +2750,7 @@
     clearSeekWatchdog();
     hideErrorOverlay();
     hideBigPlay();
+    hideCenterStatus();
     hideResume(false);
     pendingResumeTime = null;
     resumeOfferedFor = -1;
