@@ -2587,6 +2587,27 @@
     return out;
   }
 
+  // 8.x-fix: читаемые подписи вместо «S1E1» — «1 сезон, 1 серия».
+  // Держим форму-шаблон («2 сезон, 3 серия»), как в запросе — это метка места,
+  // а не счёт («два сезона, три серии»).
+  function seasonEpisodeLabel(sea, epi) {
+    if (sea == null || epi == null) return '';
+    return sea + ' сезон, ' + epi + ' серия';
+  }
+  // Настоящее название серии. Служебные подписи («1 серия», «Серия 3», «S1E1»)
+  // названием не считаем — иначе шапка дублировала бы «1 сезон, 1 серия — 1 серия».
+  function episodeName(item) {
+    const t = (item && item.title ? String(item.title) : '').trim();
+    if (!t) return '';
+    if (/^(серия\s*)?\d+$/i.test(t)) return '';       // «1», «Серия 1»
+    if (/^\d+\s*сери(я|и|й)$/i.test(t)) return '';     // «1 серия»
+    if (/^S\d+\s*E\d+$/i.test(t)) return '';           // «S1E1»
+    return t;
+  }
+  function episodeNameAt(sea, epi) {
+    return episodeName(seasonEpisodes(sea).find(x => x.ep === epi));
+  }
+
   function renderEpisodeNav() {
     if (!episodesIndex) return;
     // 8.x-fix: сезон в меню — отдельное состояние «просмотра»: можно листать
@@ -2625,9 +2646,12 @@
     episodeOptions.innerHTML = '';
     list.forEach(item => {
       const b = document.createElement('button');
-      // 8.x-fix: подпись — название серии как есть («1 серия»), без «1. » перед ним.
-      b.textContent = item.title || String(item.ep);
-      b.title = item.title || ('Серия ' + item.ep);
+      // 8.x-fix: подпись — «N серия» + название, если оно есть. На телефоне
+      // всплывающих подсказок нет, поэтому название дублируем и в кнопке.
+      const name = episodeName(item);
+      b.textContent = name ? (item.ep + '. ' + name)
+                           : (item.title || (item.ep + ' серия'));
+      b.title = item.ep + ' серия' + (name ? ' · ' + name : '');
       b.className = (navSeason === curSeason && item.ep === curEpisode) ? 'active' : '';
       b.addEventListener('click', () => { curSeason = navSeason; playEpisode(item.ep); });
       episodeOptions.appendChild(b);
@@ -2704,6 +2728,7 @@
       }
       navSeason = curSeason;   // 8.x-fix: меню открывается на текущем сезоне
       renderEpisodeNav();
+      updateTitleForEpisode(); // 8.x-fix: название серии в шапке после загрузки списка
       // 8.x-fix: если список ждали для прыжка на последнюю серию — прыгаем.
       if (pendingEpisodeJump) {
         const j = pendingEpisodeJump;
@@ -3445,7 +3470,7 @@
     if (t < 10 || t > dur - 15) { store.remove(key); return; }
     store.write(key, { t, d: dur, at: now });
     // 8.x-fix: запоминаем последнюю просмотренную серию сериала — по ней «продолжим».
-    // Только для сериалов (у фильмов нет catalog-api), иначе плашка звала бы в S1E1.
+    // Только для сериалов (у фильмов нет catalog-api), иначе плашка звала бы к чужой серии.
     if (contentId && catalogApi) store.write(lastKey(), { sea: curSeason || 1, epi: curEpisode || 1, t, d: dur, at: now });
   }
   // Плашку показываем один раз на запуск воспроизведения.
@@ -3503,7 +3528,7 @@
       pendingResumeTime = null;
       pendingResumeEpisode = { sea: last.sea, epi: last.epi, t: last.t };
       showResumePill(
-        '▶ Продолжить S' + last.sea + 'E' + last.epi + ' · ' + formatTime(last.t),
+        '▶ Продолжить: ' + seasonEpisodeLabel(last.sea, last.epi) + ' · ' + formatTime(last.t),
         ['pos.' + contentId + '.' + last.sea + '.' + last.epi, lastKey()]);
     }
   }
@@ -3561,17 +3586,37 @@
   // ============================================================
   //  Шаг 5.2–5.4: клавиатура серий/YouTube-паттерн и заголовок
   // ============================================================
-  let pageTitleBase = '';  // название тайтла без суффикса S/E
+  let pageTitleBase = '';  // только название тайтла (без провайдера/озвучки и без S/E)
+  // Бот кладёт в `title` «Название — Провайдер [— Озвучка] [— S1E1]». Для шапки
+  // берём только первое звено (само название) — плеер/озвучку не показываем.
+  function parseBotTitle(raw) {
+    const text = (raw || '').trim();
+    if (!text) return { base: '', sea: null, epi: null };
+    const parts = text.split(/\s+[—–-]\s+/);
+    let sea = null, epi = null;
+    for (let i = 1; i < parts.length; i++) {
+      const m = parts[i].trim().match(/^S(\d+)\s*E(\d+)$/i);
+      if (m) { sea = +m[1]; epi = +m[2]; }
+    }
+    const base = (parts[0] || text).trim();
+    return { base: base || text, sea, epi };
+  }
   function applyTitle(text) {
     if (!text) return;
     document.title = text + ' — R·Films';
     titleBar.textContent = text;
     titleBar.classList.remove('hidden');
   }
-  // Шаг 5.4: при переключении серии внутри плеера обновляем шапку.
+  // Шаг 5.4: при переключении серии внутри плеера обновляем шапку —
+  // «Название — N сезон, M серия — Название серии».
   function updateTitleForEpisode() {
-    if (!pageTitleBase || curSeason == null || curEpisode == null) return;
-    applyTitle(pageTitleBase + ' — S' + curSeason + 'E' + curEpisode);
+    if (!pageTitleBase) return;
+    const parts = [pageTitleBase];
+    const se = seasonEpisodeLabel(curSeason, curEpisode);
+    if (se) parts.push(se);
+    const name = episodeNameAt(curSeason, curEpisode);
+    if (name) parts.push(name);
+    applyTitle(parts.join(' — '));
   }
   // Шаг 5.3: покадровый шаг (,/. в YouTube).
   function frameStep(dir) {
@@ -3612,13 +3657,16 @@
     const fallback = params.get('fallback');
     if (audio) audioNames = audio.split('|');
     if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
-    // Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт «Название — Озвучка — S1E2»).
-    // Шаг 5.4: базовое название (без S/E) запоминаем, чтобы обновлять при смене серии.
+    // Шаг 1.1: заголовок тайтла из `&title=` (бот кладёт «Название — Провайдер [— Озвучка]»).
+    // 8.x-fix: в шапке оставляем только само название; провайдер/озвучку не показываем,
+    // а сезон/серию рисуем по-русски («1 сезон, 1 серия») — см. `updateTitleForEpisode`.
     const pageTitle = (params.get('title') || '').trim();
+    let titleSeason = null, titleEpisode = null;
     if (pageTitle) {
-      const se = pageTitle.match(/^(.*?)[\s—–-]+S(\d+)E(\d+)$/);
-      pageTitleBase = se ? se[1].trim() : pageTitle;
-      applyTitle(pageTitle);
+      const parsed = parseBotTitle(pageTitle);
+      pageTitleBase = parsed.base;
+      titleSeason = parsed.sea;
+      titleEpisode = parsed.epi;
     }
     // Шаг 1.2: кнопка «Скачать» — только для прямого потока (`&download=`).
     // `.m3u8` в download бот не кладёт (`make_stream` это запрещает), но
@@ -3638,6 +3686,10 @@
     const epi = parseInt(params.get('epi'), 10);
     if (sea > 0) curSeason = sea;
     if (epi > 0) curEpisode = epi;
+    // 8.x-fix: если бот положил сезон/серию в сам заголовок — берём как запасной.
+    if (curSeason == null && titleSeason) curSeason = titleSeason;
+    if (curEpisode == null && titleEpisode) curEpisode = titleEpisode;
+    if (pageTitleBase) updateTitleForEpisode();
     if (embed) {
       manualUrlInput.value = embed;
       copyInputBtn.classList.remove('hidden');
