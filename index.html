@@ -245,6 +245,7 @@
   .player-container.embed-mode .dl-btn,
   .player-container.embed-mode .big-play,
   .player-container.embed-mode .error-overlay,
+  .player-container.embed-mode .resume-pill,
   .player-container.embed-mode .settings-panel,
   .player-container.embed-mode .speed-drag-indicator,
   .player-container.embed-mode .seek-preview,
@@ -292,6 +293,7 @@
   }
   .player-container.locked .controls,
   .player-container.locked .speed-drag-indicator,
+  .player-container.locked .resume-pill,
   .player-container.locked .seek-preview {
     display: none !important;
   }
@@ -484,6 +486,49 @@
     color: #000;
   }
   .error-btn.primary:hover { filter: brightness(1.08); }
+
+  /* ====== Resume Pill (Шаг 4.2: «продолжить с 12:34») ====== */
+  .resume-pill {
+    position: absolute;
+    left: 16px;
+    bottom: 76px;
+    z-index: 40;
+    display: flex;
+    align-items: stretch;
+    background: rgba(20, 22, 28, 0.95);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+    animation: pill-in 0.18s ease-out;
+  }
+  .resume-go {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .resume-go:hover { background: rgba(255,255,255,0.1); }
+  .resume-close {
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    font: inherit;
+    font-size: 13px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .resume-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  @keyframes pill-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
 
   /* ====== Controls ====== */
   .controls {
@@ -986,6 +1031,11 @@
         </div>
       </div>
 
+      <div class="resume-pill hidden" id="resumePill">
+        <button class="resume-go" id="resumeBtn">▶ Продолжить</button>
+        <button class="resume-close" id="resumeCloseBtn" title="Начать с начала" aria-label="Начать с начала">✕</button>
+      </div>
+
       <div class="controls" id="controls">
         <div class="progress-wrapper" id="progressWrapper">
           <div class="progress-bg">
@@ -1172,6 +1222,9 @@
   const errorFallbackBtn = $('errorFallbackBtn');
   const errorNextBtn     = $('errorNextBtn');
   const loadingText      = $('loadingText');
+  const resumePill       = $('resumePill');
+  const resumeBtn        = $('resumeBtn');
+  const resumeCloseBtn   = $('resumeCloseBtn');
   const controlsEl       = $('controls');
   const progressWrapper  = $('progressWrapper');
   const progressBuffer   = $('progressBuffer');
@@ -1431,6 +1484,7 @@
       if (ambientLoop) cancelAnimationFrame(ambientLoop);
       playerOuter.classList.remove('ambient');
     }
+    saveSettings();
   });
 
   // ============================================================
@@ -1542,6 +1596,7 @@
     updateVolumeIcon();
     updateVolumeTooltip();
     volumeTooltip.classList.add('visible');
+    saveSettings();
   });
   volumeSlider.addEventListener('change', () => {
     setTimeout(() => volumeTooltip.classList.remove('visible'), 1000);
@@ -1560,6 +1615,7 @@
     updateVolumeTooltip();
     volumeTooltip.classList.add('visible');
     setTimeout(() => volumeTooltip.classList.remove('visible'), 1000);
+    saveSettings();
   });
   nativeVideo.addEventListener('volumechange', () => {
     volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
@@ -1596,6 +1652,9 @@
   // ============================================================
   function applyRate(rate) {
     userSpeed = rate;
+    // Шаг 4.1: `load()` сбрасывает playbackRate к defaultPlaybackRate,
+    // поэтому держим их синхронными — иначе скорость теряется при загрузке.
+    try { nativeVideo.defaultPlaybackRate = rate; } catch {}
     if (!pointerDown || pointerDown.mode !== 'speed') nativeVideo.playbackRate = rate;
     speedOptions.querySelectorAll('button').forEach(b => {
       b.classList.toggle('active', parseFloat(b.dataset.speed) === rate);
@@ -1603,7 +1662,7 @@
   }
   speedOptions.addEventListener('click', e => {
     const btn = e.target.closest('button[data-speed]');
-    if (btn) applyRate(parseFloat(btn.dataset.speed));
+    if (btn) { applyRate(parseFloat(btn.dataset.speed)); saveSettings(); }
   });
 
   function setStep(sec) {
@@ -1616,7 +1675,7 @@
   }
   stepOptions.addEventListener('click', e => {
     const btn = e.target.closest('button[data-step]');
-    if (btn) setStep(parseInt(btn.dataset.step, 10));
+    if (btn) { setStep(parseInt(btn.dataset.step, 10)); saveSettings(); }
   });
 
   // ============================================================
@@ -1693,7 +1752,7 @@
     autoBtn.textContent = 'Auto';
     autoBtn.className = 'active';
     autoBtn.dataset.level = '-1';
-    autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); });
+    autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); savePrefs({ level: 'Auto' }); });
     qualityOptions.appendChild(autoBtn);
 
     // Движок отдаёт по STREAM-INF на каждую аудиогруппу — уровни дублируются;
@@ -1713,10 +1772,17 @@
       const btn = document.createElement('button');
       btn.textContent = label;
       btn.dataset.level = String(i);
-      btn.addEventListener('click', () => { hls.currentLevel = i; setActiveLevel(i); });
+      btn.addEventListener('click', () => { hls.currentLevel = i; setActiveLevel(i); savePrefs({ level: label }); });
       qualityOptions.appendChild(btn);
     }
     qualitySection.classList.toggle('hidden', items.length <= 1);
+    // Шаг 4.3: вспоминаем выбранное качество этого тайтла.
+    const saved = store.read(titleKey(), null);
+    if (saved && saved.level && saved.level !== 'Auto') {
+      const btn = Array.from(qualityOptions.querySelectorAll('button'))
+        .find(b => b.textContent === saved.level && b.dataset.level !== '-1');
+      if (btn) { hls.currentLevel = parseInt(btn.dataset.level, 10); setActiveLevel(btn.dataset.level); }
+    }
   }
   function setActiveLevel(idx) {
     qualityOptions.querySelectorAll('button').forEach(b => {
@@ -1746,13 +1812,19 @@
     }
     visible.forEach(i => {
       const btn = document.createElement('button');
-      btn.textContent = audioTrackLabel(list[i], i);
+      const label = audioTrackLabel(list[i], i);
+      btn.textContent = label;
       btn.dataset.track = String(i);
-      btn.addEventListener('click', () => { hls.audioTrack = i; setActiveAudio(i); });
+      btn.addEventListener('click', () => { hls.audioTrack = i; setActiveAudio(i); savePrefs({ audio: label }); });
       audioOptions.appendChild(btn);
     });
     audioSection.classList.remove('hidden');
-    setActiveAudio(hls.audioTrack);
+    // Шаг 4.3: вспоминаем выбранную озвучку этого тайтла.
+    const savedAudio = (store.read(titleKey(), null) || {}).audio;
+    const pick = savedAudio && Array.from(audioOptions.querySelectorAll('button'))
+      .find(b => b.textContent === savedAudio);
+    if (pick) { hls.audioTrack = parseInt(pick.dataset.track, 10); setActiveAudio(pick.dataset.track); }
+    else setActiveAudio(hls.audioTrack);
   }
   function setActiveAudio(i) {
     audioOptions.querySelectorAll('button').forEach(b => {
@@ -2251,6 +2323,9 @@
     clearSeekWatchdog();
     hideErrorOverlay();
     hideBigPlay();
+    hideResume(false);
+    pendingResumeTime = null;
+    resumeOfferedFor = -1;
     if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
     if (currentHls) { try { currentHls.destroy(); } catch {} currentHls = null; }
     if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} currentBlobUrl = null; }
@@ -2456,11 +2531,170 @@
   });
 
   // ============================================================
+  //  Шаг 4: память настроек, позиции и выбранных дорожек
+  //  (localStorage, всё в try/catch — приватный режим не ломает плеер).
+  // ============================================================
+  const store = (() => {
+    const PREFIX = 'rfilms.';
+    let ok = true;
+    try {
+      localStorage.setItem(PREFIX + '__t', '1');
+      localStorage.removeItem(PREFIX + '__t');
+    } catch { ok = false; }
+    const read = (key, fallback) => {
+      if (!ok) return fallback;
+      try {
+        const raw = localStorage.getItem(PREFIX + key);
+        return raw == null ? fallback : JSON.parse(raw);
+      } catch { return fallback; }
+    };
+    const write = (key, val) => {
+      if (!ok) return;
+      try { localStorage.setItem(PREFIX + key, JSON.stringify(val)); } catch {}
+    };
+    const remove = key => {
+      if (!ok) return;
+      try { localStorage.removeItem(PREFIX + key); } catch {}
+    };
+    // 4.4: чистим позиции старше TTL и битые записи.
+    const prune = (ttlMs) => {
+      if (!ok) return;
+      const now = Date.now();
+      const keys = [];
+      try { for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); }
+      catch { return; }
+      keys.forEach(k => {
+        if (!k || k.indexOf(PREFIX + 'pos.') !== 0) return;
+        try {
+          const v = JSON.parse(localStorage.getItem(k));
+          if (!v || typeof v.at !== 'number' || now - v.at > ttlMs) localStorage.removeItem(k);
+        } catch { try { localStorage.removeItem(k); } catch {} }
+      });
+    };
+    return { read, write, remove, prune };
+  })();
+
+  const POS_TTL = 30 * 24 * 3600 * 1000;  // 4.4: позиция живёт 30 дней
+
+  // 4.1: настройки (скорость, шаг, громкость, ambient).
+  function saveSettings() {
+    store.write('settings', {
+      speed: userSpeed,
+      step: currentStep,
+      volume: nativeVideo.volume,
+      muted: nativeVideo.muted,
+      ambient: ambientToggle.checked,
+    });
+  }
+  function restoreSettings() {
+    const s = store.read('settings', null);
+    if (!s || typeof s !== 'object') return;
+    if (typeof s.step === 'number') setStep(s.step);
+    if (typeof s.speed === 'number') applyRate(s.speed);
+    if (typeof s.volume === 'number') nativeVideo.volume = Math.min(1, Math.max(0, s.volume));
+    if (typeof s.muted === 'boolean') nativeVideo.muted = s.muted;
+    // Не полагаемся на событие `volumechange` — синхронизируем ползунок явно.
+    volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
+    updateVolumeIcon();
+    if (s.ambient === true) { ambientToggle.checked = true; startAmbient(); }
+  }
+
+  // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
+  // иначе — по хэшу прямой ссылки. Стабилен между сессиями.
+  function urlHash(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
+  function titleKey() {
+    if (contentId) return 'pref.' + contentId;
+    if (currentUrl) return 'pref.' + urlHash(currentUrl);
+    return '';
+  }
+  function posKey() {
+    if (contentId) return 'pos.' + contentId + '.' + (curSeason || 0) + '.' + (curEpisode || 0);
+    if (currentUrl) return 'pos.' + urlHash(currentUrl);
+    return '';
+  }
+  // 4.3: помним выбранное качество/озвучку по тайтлу.
+  function savePrefs(patch) {
+    const key = titleKey();
+    if (!key) return;
+    const cur = store.read(key, null);
+    store.write(key, Object.assign(cur && typeof cur === 'object' ? cur : {}, patch));
+  }
+
+  // 4.2: сохранение позиции (не чаще раза в 5 с; при уходе — сразу).
+  let lastPosSave = 0;
+  let pendingResumeTime = null;
+  let resumeTimer = null;
+
+  function hideResume(dropPoint) {
+    resumePill.classList.add('hidden');
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+    if (dropPoint) { const k = posKey(); if (k) store.remove(k); }
+  }
+  function savePosition(force) {
+    // Пока висит плашка, выбор ещё не сделан — не затираем точку.
+    if (!resumePill.classList.contains('hidden')) return;
+    if (nativeVideo.classList.contains('hidden')) return;
+    const key = posKey();
+    const dur = nativeVideo.duration;
+    if (!key || !isFinite(dur) || dur <= 0) return;
+    const now = Date.now();
+    if (!force && now - lastPosSave < 5000) return;
+    lastPosSave = now;
+    const t = nativeVideo.currentTime;
+    if (t < 10 || t > dur - 15) { store.remove(key); return; }
+    store.write(key, { t, d: dur, at: now });
+  }
+  // Плашку показываем один раз на запуск воспроизведения.
+  let resumeOfferedFor = -1;
+  function maybeOfferResume() {
+    if (resumeOfferedFor === playbackId) return;
+    resumeOfferedFor = playbackId;
+    if (nativeVideo.classList.contains('hidden')) return;
+    const key = posKey();
+    if (!key) return;
+    const entry = store.read(key, null);
+    if (!entry || typeof entry.t !== 'number') return;
+    if (typeof entry.at === 'number' && Date.now() - entry.at > POS_TTL) { store.remove(key); return; }
+    const dur = nativeVideo.duration;
+    if (isFinite(dur) && dur > 0 && entry.t > dur - 15) { store.remove(key); return; }
+    if (entry.t < 10) return;
+    pendingResumeTime = entry.t;
+    resumeBtn.textContent = '▶ Продолжить ' + formatTime(entry.t);
+    resumePill.classList.remove('hidden');
+    clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => hideResume(true), 9000);
+  }
+  resumeBtn.addEventListener('click', () => {
+    if (pendingResumeTime != null) seekToTime(pendingResumeTime);
+    hideResume(false);
+  });
+  resumeCloseBtn.addEventListener('click', () => hideResume(true));
+  nativeVideo.addEventListener('loadedmetadata', maybeOfferResume);
+  // Шаг 4.1: после загрузки источника возвращаем выбранную скорость
+  // (некоторые движки сбрасывают её при смене `src`).
+  nativeVideo.addEventListener('loadedmetadata', () => {
+    try { nativeVideo.playbackRate = userSpeed; } catch {}
+  });
+  nativeVideo.addEventListener('timeupdate', () => savePosition(false));
+  nativeVideo.addEventListener('pause', () => savePosition(true));
+  nativeVideo.addEventListener('ended', () => { const k = posKey(); if (k) store.remove(k); });
+  window.addEventListener('pagehide', () => savePosition(true));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) savePosition(true); });
+
+  // ============================================================
   //  Init
   // ============================================================
   (function init() {
     setStep(10);
     updateVolumeIcon();
+    // Шаг 4: восстанавливаем настройки и подчищаем устаревшие позиции.
+    restoreSettings();
+    store.prune(POS_TTL);
     
     const params = new URLSearchParams(location.search);
     const embed = params.get('embed');
