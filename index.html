@@ -160,6 +160,8 @@
     flex-direction: column;
   }
   button { font-family: inherit; outline: none; }
+  /* Шаг 2.4: без серой вспышки при тапе по кнопкам/ссылкам на мобильном. */
+  button, a, label { -webkit-tap-highlight-color: transparent; }
   .hidden { display: none !important; }
 
   .page {
@@ -223,6 +225,9 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    /* Шаг 2.2: убираем double-tap zoom — он перебивал двойной тап
+       (перемотка по бокам / фуллскрин по центру). */
+    touch-action: manipulation;
   }
   .player-container iframe,
   .player-container video {
@@ -798,6 +803,24 @@
     .settings-panel { right: 10px; bottom: 60px; width: calc(100% - 20px); }
     .bottom-input { padding: 0 10px; }
   }
+
+  /* ====== Тач-устройства (Шаг 2) ======
+     На тач нет hover. Крупные кнопки нижней панели оставлены на Шаг 7.1
+     (вместе с перекомпоновкой строки, чтобы не переполнить её на узком экране). */
+  @media (hover: none), (pointer: coarse) {
+    /* Шаг 2.1: кнопка блокировки видна без hover — иначе на тач её не найти. */
+    .lock-btn { opacity: 1; }
+    /* Крупные тап-зоны у overlay-кнопок (≥44px). */
+    .lock-btn, .dl-btn { width: 44px; height: 44px; }
+    .lock-btn svg { width: 20px; height: 20px; }
+    .settings-options button { padding: 9px 14px; }
+  }
+  @media (hover: none) {
+    /* Шаг 2.4: гасим «залипающий» hover после тапа. */
+    .ctrl-btn:hover { background: transparent; color: #fff; }
+    .settings-options button:hover { background: rgba(255,255,255,0.06); }
+    .lock-btn:hover, .dl-btn:hover { background: var(--panel); color: #fff; }
+  }
 </style>
 </head>
 <body>
@@ -1368,16 +1391,30 @@
     updateVolumeIcon();
   });
 
-  function toggleFullscreen() {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else (playerContainer.requestFullscreen || playerContainer.webkitRequestFullscreen)?.call(playerContainer);
-  }
-  fullscreenBtn.addEventListener('click', toggleFullscreen);
-  document.addEventListener('fullscreenchange', () => {
-    const fs = !!document.fullscreenElement;
+  // Шаг 2.3: iOS Safari не умеет фуллскрин контейнера — уходим на нативный
+  // фуллскрин самого <video> (`webkitEnterFullscreen`); он не даёт
+  // `fullscreenchange`, поэтому отдельно слушаем его события.
+  function setFsIcon(fs) {
     iconFs.classList.toggle('hidden', fs);
     iconFsExit.classList.toggle('hidden', !fs);
-  });
+  }
+  function syncFsIcon() {
+    setFsIcon(!!(document.fullscreenElement || document.webkitFullscreenElement));
+  }
+  function toggleFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      return;
+    }
+    const req = playerContainer.requestFullscreen || playerContainer.webkitRequestFullscreen;
+    if (req) { Promise.resolve(req.call(playerContainer)).catch(() => {}); return; }
+    if (nativeVideo.webkitEnterFullscreen) nativeVideo.webkitEnterFullscreen();
+  }
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', syncFsIcon);
+  document.addEventListener('webkitfullscreenchange', syncFsIcon);
+  nativeVideo.addEventListener('webkitbeginfullscreen', () => setFsIcon(true));
+  nativeVideo.addEventListener('webkitendfullscreen', () => setFsIcon(false));
 
   // ============================================================
   //  Speed & Step
