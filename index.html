@@ -3434,8 +3434,6 @@
     resumeTargetKeys = [];
   }
   function savePosition(force) {
-    // Пока висит плашка, выбор ещё не сделан — не затираем точку.
-    if (!resumePill.classList.contains('hidden')) return;
     if (nativeVideo.classList.contains('hidden')) return;
     const key = posKey();
     const dur = nativeVideo.duration;
@@ -3454,11 +3452,14 @@
   let resumeOfferedFor = -1;
   let pendingResumeEpisode = null;   // {sea, epi, t} — «продолжить» с другой серии
   function showResumePill(label, targetKeys) {
+    // 8.x-fix: плашка «продолжить» висит, пока пользователь не выберет —
+    // тап («продолжить») или ✕ («начать с начала»). Так продолжение сериала
+    // не теряется, если решение принимают не сразу.
     resumeTargetKeys = targetKeys || [];
     resumeBtn.textContent = label;
     resumePill.classList.remove('hidden');
     clearTimeout(resumeTimer);
-    resumeTimer = setTimeout(() => hideResume(true), 9000);
+    resumeTimer = null;
   }
   function maybeOfferResume() {
     if (nativeVideo.classList.contains('hidden')) return;
