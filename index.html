@@ -284,11 +284,24 @@
   /* Шаг 7.5: «Заполнить» — видео растягивается на весь кадр (cover). */
   .player-container.fill video { object-fit: cover; }
 
-  /* Шаг 7.4: режим «Театр/Фокус» — только видео, служебные блоки скрыты. */
+  /* Шаг 7.4: режим «Театр/Фокус» — только видео, служебные блоки скрыты.
+     8.x-fix: рамка не выходит за экран (раньше видео растягивалось выше окна и
+     страницу приходилось листать). Страница не скроллится, плеер вписан в окно. */
+  body.theater { overflow: hidden; height: 100vh; }
   body.theater .topbar,
   body.theater .bottom-input { display: none !important; }
-  body.theater .page { padding: 0; }
-  body.theater .player-outer { max-height: none; }
+  body.theater .page {
+    padding: 0;
+    min-height: 0;
+    height: 100vh;
+    justify-content: center;   /* видео по центру по вертикали */
+  }
+  body.theater .player-outer {
+    max-height: 100vh;
+    max-width: 100vw;
+  }
+  /* В театре гарантированно без деформации: полный кадр, без «растянуть». */
+  body.theater .player-container video { object-fit: contain; }
 
   /* Скрываем весь кастомный UI в embed-режиме */
   .player-container.embed-mode .controls,
@@ -615,6 +628,8 @@
     align-items: center;
     cursor: pointer;
     margin-bottom: 4px;
+    /* 8.x-fix: перетаскивание полосы не скроллит страницу на тач. */
+    touch-action: none;
   }
   .progress-bg {
     position: absolute;
@@ -668,6 +683,9 @@
     cursor: pointer;
     margin: 0;
     z-index: 5;
+    /* 8.x-fix: перемотку ведём сами (pointer-события) — нативный range больше не
+       перехватывает клики и не смещает шарик относительно курсора. */
+    pointer-events: none;
   }
 
   /* Control Row */
@@ -710,7 +728,7 @@
     justify-content: center;
     font-size: 10px;
     font-weight: 700;
-    padding-top: 1px;
+    line-height: 1;             /* цифра ровно по центру кружка (8.x-fix) */
     pointer-events: none;
   }
   #skipFwdBtn svg { transform: scaleX(-1); }
@@ -778,14 +796,16 @@
   }
   .volume-tooltip {
     position: absolute;
-    bottom: calc(100% + 8px);
+    /* 8.x-fix: подсказка — НИЖЕ ползунка (раньше висела над ним и накрывала
+       полосу перемотки). Компактная, чтобы влезать в нижний отступ панели. */
+    top: calc(100% + 2px);
     transform: translateX(-50%);
     background: var(--panel);
     border: 1px solid var(--accent-dim);
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     pointer-events: none;
     opacity: 0;
@@ -1217,7 +1237,9 @@
           <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0">
         </div>
         <div class="ctrl-row">
-          <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад">
+          <!-- 8.x: переключатель серий — слева/справа от кнопок перемотки у паузы. -->
+          <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия">◀<span class="ep-nav-label"> Серия</span></button>
+          <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (J)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
@@ -1232,21 +1254,18 @@
               <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
             </svg>
           </button>
-          <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд">
+          <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (L)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
             </svg>
             <span class="skip-label" id="skipFwdLabel">10</span>
           </button>
+          <button class="ctrl-btn ep-nav-btn hidden" id="nextEpBtn" title="Следующая серия (Shift+→ / N)" aria-label="Следующая серия"><span class="ep-nav-label">Серия </span>▶</button>
           <div class="time-display" id="timeDisplay">
             <span id="timeCurrent">0:00</span>
             <span class="time-sep">/</span>
             <span id="timeTotal">0:00</span>
-          </div>
-          <div class="ep-nav hidden" id="epNav">
-            <button class="ctrl-btn ep-nav-btn" id="prevEpBtn" title="Предыдущая серия">◀<span class="ep-nav-label"> Серия</span></button>
-            <button class="ctrl-btn ep-nav-btn" id="nextEpBtn" title="Следующая серия"><span class="ep-nav-label">Серия </span>▶</button>
           </div>
           <div class="spacer"></div>
           <div class="volume-wrap" id="volumeWrap">
@@ -1481,7 +1500,6 @@
   const seasonOptions    = $('seasonOptions');
   const episodeSection   = $('episodeSection');
   const episodeOptions   = $('episodeOptions');
-  const epNav            = $('epNav');
   const prevEpBtn        = $('prevEpBtn');
   const nextEpBtn        = $('nextEpBtn');
   const speedOptions     = $('speedOptions');
@@ -1515,6 +1533,7 @@
   let curEpisode = null;     // текущая серия
   let episodesIndex = null;  // {seasons: [...], bySeason: {сезон: [{ep, title, url}]}}
   let isSeeking = false;
+  let progressDragging = false;  // 8.x-fix: своё перетаскивание полосы перемотки
   let showRemaining = false;
   let settingsOpen = false;
   let isLocked = false;
@@ -1665,6 +1684,8 @@
     lockBtn.querySelector('.icon-unlocked').classList.toggle('hidden', isLocked);
     lockBtn.querySelector('.icon-locked').classList.toggle('hidden', !isLocked);
     if (isLocked) {
+      // 8.x: при блокировке интерфейса закрываем и панель настроек.
+      if (settingsOpen) toggleSettings(false);
       playerContainer.classList.remove('controls-visible');
     } else {
       showControls();
@@ -1746,12 +1767,37 @@
     nativeVideo.currentTime = Math.max(0, Math.min(nativeVideo.duration, time));
   }
 
+  // 8.x-fix: перемотку ведём сами по pointer-событиям полосы — шарик встаёт ровно
+  // под курсором, а всплывающее время показывается НАД полосой (а не на ней).
+  function progressPct(e) {
+    const rect = progressWrapper.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    return Math.max(0, Math.min(1, rect.width ? x / rect.width : 0));
+  }
+  function setProgressVisual(pct) {
+    progressFill.style.width = (pct * 100) + '%';
+    progressThumb.style.left = (pct * 100) + '%';
+    progressInput.value = Math.round(pct * 1000);
+  }
+  function showSeekPreview(pct) {
+    const dur = nativeVideo.duration || 0;
+    seekPreviewTime.textContent = formatTime(pct * dur);
+    // Привязываемся к САМОЙ полосе (она внутри панели с отступами), иначе
+    // подсказка уезжает в сторону; низ подсказки — над полосой.
+    const pr = progressWrapper.getBoundingClientRect();
+    const cr = playerContainer.getBoundingClientRect();
+    seekPreview.style.left = (pr.left - cr.left + pct * pr.width) + 'px';
+    seekPreview.style.bottom = (cr.bottom - pr.top + 10) + 'px';
+    seekPreview.classList.add('active');
+  }
+
+  // Клавиатура (Tab + стрелки): range остаётся доступным, событие `input` меняет
+  // только картинку; полноценный seek — на `change`.
   progressInput.addEventListener('input', () => {
     isSeeking = true;
     const dur = nativeVideo.duration || 0;
     const pct = progressInput.value / 1000;
-    progressFill.style.width = (pct * 100) + '%';
-    progressThumb.style.left = (pct * 100) + '%';
+    setProgressVisual(pct);
     timeCurrent.textContent = formatTime(pct * dur);
   });
   progressInput.addEventListener('change', () => {
@@ -1760,17 +1806,41 @@
     isSeeking = false;
     showControls();
   });
-  
-  progressWrapper.addEventListener('mousemove', e => {
-    if (!nativeVideo.duration) return;
-    const rect = progressWrapper.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const time = pct * nativeVideo.duration;
-    seekPreviewTime.textContent = formatTime(time);
-    seekPreview.style.left = (pct * 100) + '%';
-    seekPreview.classList.add('active');
+
+  progressWrapper.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !nativeVideo.duration) return;
+    e.preventDefault();
+    progressDragging = true;
+    isSeeking = true;
+    try { progressWrapper.setPointerCapture(e.pointerId); } catch (err) {}
+    const pct = progressPct(e);
+    setProgressVisual(pct);
+    timeCurrent.textContent = formatTime(pct * nativeVideo.duration);
+    showSeekPreview(pct);
+    showControls();
   });
-  progressWrapper.addEventListener('mouseleave', () => seekPreview.classList.remove('active'));
+  progressWrapper.addEventListener('pointermove', e => {
+    if (!nativeVideo.duration) return;
+    const pct = progressPct(e);
+    if (progressDragging) {
+      setProgressVisual(pct);
+      timeCurrent.textContent = formatTime(pct * nativeVideo.duration);
+    }
+    showSeekPreview(pct);
+  });
+  function endProgressDrag(e, commit) {
+    if (!progressDragging) return;
+    progressDragging = false;
+    isSeeking = false;
+    if (commit) seekToTime(progressPct(e) * (nativeVideo.duration || 0));
+    seekPreview.classList.remove('active');
+    showControls();
+  }
+  progressWrapper.addEventListener('pointerup', e => endProgressDrag(e, true));
+  progressWrapper.addEventListener('pointercancel', e => endProgressDrag(e, false));
+  progressWrapper.addEventListener('pointerleave', () => {
+    if (!progressDragging) seekPreview.classList.remove('active');
+  });
 
   timeDisplay.addEventListener('click', () => {
     showRemaining = !showRemaining;
@@ -2211,7 +2281,9 @@
     const list = seasonEpisodes(curSeason);
     const flat = flatEpisodes();
     const pos = flat.findIndex(x => x.season === curSeason && x.ep === curEpisode);
-    epNav.classList.remove('hidden');
+    // 8.x: кнопки серий стоят по бокам от перемотки у паузы — показываем обе.
+    prevEpBtn.classList.remove('hidden');
+    nextEpBtn.classList.remove('hidden');
     // Шаг 7.1-fix: на телефоне ±10 прячем — в сериале их место занимает переключатель.
     playerContainer.classList.add('has-episodes');
     prevEpBtn.disabled = pos <= 0;
@@ -2774,7 +2846,7 @@
     
     const dt = Date.now() - pointerDown.startTime;
     const dx = e.clientX - pointerDown.startX;
-    
+
     if (pointerDown.mode === 'speed' && pointerDown.isSpeeding) {
       nativeVideo.playbackRate = userSpeed;
       speedDragIndicator.classList.add('hidden');
@@ -2783,7 +2855,6 @@
       if (isPausedByDrag) nativeVideo.play().catch(()=>{});
     }
 
-    const mode = pointerDown.mode;
     const isDrag = Math.abs(dx) > 10;
     pointerDown = null;
 
@@ -2791,9 +2862,10 @@
 
     if (dt < 300) {
       if (clickTimeout) clearTimeout(clickTimeout);
-      clickTimeout = setTimeout(() => {
-        if (mode === 'center') togglePlay();
-      }, 250);
+      // 8.x: одиночный клик в ЛЮБОЙ области ставит/снимает паузу (раньше — только
+      // по центру). Двойной клик (перемотка по бокам / фуллскрин по центру)
+      // отменяет это срабатывание в `handleDoubleClick`.
+      clickTimeout = setTimeout(togglePlay, 250);
     }
   }
 
