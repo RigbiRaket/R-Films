@@ -921,8 +921,8 @@
     white-space: normal;
     word-break: break-word;
   }
-  /* Серия — под сезоном, внутри одного раздела. */
-  .settings-subblock { margin-top: 14px; }
+  /* Серия — под сезоном, внутри одного раздела (отступ задаёт лента сезонов). */
+  .settings-subblock { margin-top: 0; }
   .settings-title-sub { margin-top: 0; }
   .settings-toggle {
     display: flex;
@@ -983,6 +983,13 @@
     margin-top: 4px;
     padding-top: 6px;
     border-top: 1px solid rgba(255,255,255,0.08);
+    /* 8.x-fix: фиксированная высота области раздела — меню не «скачет» вверх/вниз
+       при переключении разделов. Короткие разделы просто оставляют пустое место
+       снизу, длинные — прокручиваются внутри. */
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .settings-body[hidden] { display: none; }
   .settings-body.anim { animation: settings-body-in 0.22s ease-out; }
@@ -990,7 +997,38 @@
     from { opacity: 0; transform: translateX(-18px); }
     to { opacity: 1; transform: none; }
   }
-  .settings-body .settings-section { padding: 2px 2px 4px; }
+  .settings-body .settings-section {
+    padding: 2px 2px 4px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* 8.x-fix: сезоны и серии — сезоны компактной лентой сверху (остаётся на
+     месте), серии прокручиваются под ней. Сезонов может быть много, а меняются
+     в основном серии. */
+  #seasonSection {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #seasonSection #episodeSection {
+    flex: 1;
+    min-height: 0;
+    margin-top: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  #seasonOptions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    scrollbar-width: thin;
+  }
+  #seasonOptions button { flex: 0 0 auto; }
   /* Названия разделов не дублируем — они в подсказках иконок. */
   .settings-title { display: none; }
 
@@ -1204,6 +1242,9 @@
       max-height: calc(100% - 84px);
       overflow-y: auto;
     }
+    /* 8.x-fix: на низких экранах область раздела не выше 46% высоты — меню
+       по-прежнему ровное, но влезает в кадр. */
+    .settings-body { height: min(200px, 46vh); }
     /* Шаг 7.1: плашка «Продолжить» — сверху слева, вне нижней строки. */
     .resume-pill { top: 64px; bottom: auto; left: 10px; }
     .bottom-input { padding: 0 10px; }
@@ -1477,7 +1518,7 @@
           </div>
           <div class="settings-section hidden" id="seasonSection">
             <div class="settings-title">Сезон</div>
-            <div class="settings-options settings-options-grid" id="seasonOptions"></div>
+            <div class="settings-options" id="seasonOptions"></div>
             <div class="settings-subblock" id="episodeSection">
               <div class="settings-title settings-title-sub">Серия</div>
               <div class="settings-options settings-options-grid" id="episodeOptions"></div>
@@ -1639,6 +1680,10 @@
   let currentHls = null;
   let currentBlobUrl = null;
   let playbackId = 0;
+  // 8.x-fix: метка «какой источник сейчас грузится». playHls асинхронно ждёт
+  // пробу мастера — без метки устаревшая загрузка могла подключить свой hls
+  // уже после смены серии и сбросить позицию.
+  let sourceToken = 0;
   let userSpeed = 1;
   let currentStep = 10;
   let currentUrl = '';
@@ -2592,9 +2637,10 @@
 
   // Переключение серии без выхода из плеера: подменяем `embed` в адресной
   // строке (чтобы «Скопировать ссылку» отдавала текущую серию) и играем поток.
-  function playEpisode(episode) {
+  function playEpisode(episode, seekTime) {
     const item = seasonEpisodes(curSeason).find(x => x.ep === episode);
     if (!item || !item.url) return;
+    savePosition(true);      // 8.x-fix: фиксируем момент уходящей серии
     curEpisode = episode;
     navSeason = curSeason;   // 8.x-fix: меню следует за воспроизведением
     try {
@@ -2606,9 +2652,23 @@
     } catch (e) {}
     manualUrlInput.value = item.url;
     loadFromUrl(item.url);
+    // 8.x-fix: перематываем на запрошенный момент после загрузки метаданных.
+    if (seekTime != null) pendingEpisodeSeek = seekTime;
     renderEpisodeNav();
     updateTitleForEpisode();  // Шаг 5.4: шапка не врёт про S/E после переключения
     if (settingsOpen) toggleSettings(false);
+  }
+
+  // 8.x-fix: прыжок на последнюю просмотренную серию (с перемоткой на момент).
+  function jumpToEpisode(sea, epi, t) {
+    const go = () => {
+      curSeason = sea;
+      navSeason = sea;
+      if (!seasonEpisodes(sea).some(x => x.ep === epi)) return;
+      playEpisode(epi, t);
+    };
+    if (episodesIndex) go();
+    else pendingEpisodeJump = { sea, epi, t };
   }
 
   // Соседняя серия: переходим через границу сезонов (последняя серия сезона
@@ -2644,6 +2704,14 @@
       }
       navSeason = curSeason;   // 8.x-fix: меню открывается на текущем сезоне
       renderEpisodeNav();
+      // 8.x-fix: если список ждали для прыжка на последнюю серию — прыгаем.
+      if (pendingEpisodeJump) {
+        const j = pendingEpisodeJump;
+        pendingEpisodeJump = null;
+        jumpToEpisode(j.sea, j.epi, j.t);
+      } else {
+        maybeOfferResume();
+      }
     } catch (e) {
       // API недоступен — навигации просто нет, воспроизведение не трогаем.
     }
@@ -2761,6 +2829,7 @@
   }
 
   async function playHls(url) {
+    const token = ++sourceToken;
     stopPlayback();
     setLoading(true);
     showKind('video');
@@ -2770,7 +2839,9 @@
     } catch (e) {
       masterUrl = url;  // сбой пробы не должен ломать воспроизведение
     }
+    if (token !== sourceToken) return;  // 8.x-fix: источник сменился — не подключаемся
     whenHlsReady(() => {
+      if (token !== sourceToken) return;
       if (window.Hls.isSupported()) {
         // §14: у VeoVeo звук идёт отдельными аудиодорожками (#EXT-X-MEDIA
         // TYPE=AUDIO). После перемотки hls.js иногда не подхватывает их
@@ -2921,6 +2992,7 @@
   nativeVideo.addEventListener('pause', () => clearSeekWatchdog());
 
   function playHlsNative(url) {
+    sourceToken++;   // 8.x-fix: отменяем возможную устаревшую асинхронную playHls
     const myId = ++playbackId;
     nativeVideo.src = url;
     nativeVideo.addEventListener('loadedmetadata', () => {
@@ -2943,6 +3015,7 @@
   // или просто «молчит» по тайм-ауту (гео-ограничение). Тогда уходим на
   // запасной iframe источника (§13): `error` ловит отказ, сторож — тишину.
   function playMp4(url) {
+    sourceToken++;   // 8.x-fix: отменяем возможную устаревшую асинхронную playHls
     stopPlayback();
     setLoading(true);
     showKind('video');
@@ -2973,6 +3046,7 @@
   }
 
   function playEmbed(url) {
+    sourceToken++;   // 8.x-fix: отменяем возможную устаревшую асинхронную playHls
     stopPlayback();
     showKind('iframe');
     playerFrame.src = url;
@@ -3002,6 +3076,7 @@
     hideCenterStatus();
     hideResume(false);
     pendingResumeTime = null;
+    pendingResumeEpisode = null;   // 8.x-fix: цель «продолжить» живёт только до запуска
     resumeOfferedFor = -1;
     cancelAutoNext();
     if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
@@ -3019,6 +3094,7 @@
     const url = normalizeUrl(rawUrl);
     let parsed;
     try { parsed = new URL(url); } catch { return showToast('Некорректная ссылка', { error: true }); }
+    pendingEpisodeSeek = null;   // 8.x-fix: новая загрузка сбрасывает отложенную перемотку
     currentUrl = url;
     fallbackUsed = false;  // новая ссылка — фолбэк снова доступен (§13)
     setSourceChip(url);    // Шаг 7.10: домен источника в шапке
@@ -3333,12 +3409,29 @@
   let lastPosSave = 0;
   let pendingResumeTime = null;
   let resumeTimer = null;
+  let pendingEpisodeSeek = null;   // 8.x-fix: перемотка после открытия серии
+  let pendingEpisodeJump = null;   // 8.x-fix: отложенный прыжок на серию (до загрузки списка)
 
+  // 8.x-fix: «продолжить» для сериала — помним последнюю просмотренную серию тайтла.
+  function lastKey() { return contentId ? 'last.' + contentId : ''; }
+  function readSeriesLast() {
+    const k = lastKey();
+    if (!k) return null;
+    const v = store.read(k, null);
+    if (!v || typeof v.t !== 'number' ||
+        typeof v.sea !== 'number' || typeof v.epi !== 'number') return null;
+    if (typeof v.at === 'number' && Date.now() - v.at > POS_TTL) { store.remove(k); return null; }
+    return v;
+  }
+
+  // Клавиши, которые гасим при явном отказе от «продолжить».
+  let resumeTargetKeys = [];
   function hideResume(dropPoint) {
     resumePill.classList.add('hidden');
     clearTimeout(resumeTimer);
     resumeTimer = null;
-    if (dropPoint) { const k = posKey(); if (k) store.remove(k); }
+    if (dropPoint) resumeTargetKeys.forEach(k => { if (k) store.remove(k); });
+    resumeTargetKeys = [];
   }
   function savePosition(force) {
     // Пока висит плашка, выбор ещё не сделан — не затираем точку.
@@ -3353,30 +3446,78 @@
     const t = nativeVideo.currentTime;
     if (t < 10 || t > dur - 15) { store.remove(key); return; }
     store.write(key, { t, d: dur, at: now });
+    // 8.x-fix: запоминаем последнюю просмотренную серию сериала — по ней «продолжим».
+    // Только для сериалов (у фильмов нет catalog-api), иначе плашка звала бы в S1E1.
+    if (contentId && catalogApi) store.write(lastKey(), { sea: curSeason || 1, epi: curEpisode || 1, t, d: dur, at: now });
   }
   // Плашку показываем один раз на запуск воспроизведения.
   let resumeOfferedFor = -1;
-  function maybeOfferResume() {
-    if (resumeOfferedFor === playbackId) return;
-    resumeOfferedFor = playbackId;
-    if (nativeVideo.classList.contains('hidden')) return;
-    const key = posKey();
-    if (!key) return;
-    const entry = store.read(key, null);
-    if (!entry || typeof entry.t !== 'number') return;
-    if (typeof entry.at === 'number' && Date.now() - entry.at > POS_TTL) { store.remove(key); return; }
-    const dur = nativeVideo.duration;
-    if (isFinite(dur) && dur > 0 && entry.t > dur - 15) { store.remove(key); return; }
-    if (entry.t < 10) return;
-    pendingResumeTime = entry.t;
-    resumeBtn.textContent = '▶ Продолжить ' + formatTime(entry.t);
+  let pendingResumeEpisode = null;   // {sea, epi, t} — «продолжить» с другой серии
+  function showResumePill(label, targetKeys) {
+    resumeTargetKeys = targetKeys || [];
+    resumeBtn.textContent = label;
     resumePill.classList.remove('hidden');
     clearTimeout(resumeTimer);
     resumeTimer = setTimeout(() => hideResume(true), 9000);
   }
+  function maybeOfferResume() {
+    if (nativeVideo.classList.contains('hidden')) return;
+    // 8.x-fix: отложенная перемотка применяется всегда (даже если плашка уже
+    // показывалась) — например, «продолжить» нажали до прихода метаданных.
+    if (pendingEpisodeSeek != null) {
+      const t = pendingEpisodeSeek;
+      pendingEpisodeSeek = null;
+      resumeOfferedFor = playbackId;
+      resumePill.classList.add('hidden');
+      clearTimeout(resumeTimer);
+      seekToTime(t);
+      return;
+    }
+    if (resumeOfferedFor === playbackId) return;
+    const key = posKey();
+    // 1) Позиция текущей серии.
+    if (key) {
+      const entry = store.read(key, null);
+      if (entry && typeof entry.t === 'number') {
+        if (typeof entry.at === 'number' && Date.now() - entry.at > POS_TTL) {
+          store.remove(key);
+        } else {
+          const dur = nativeVideo.duration;
+          const stale = isFinite(dur) && dur > 0 && entry.t > dur - 15;
+          if (stale) store.remove(key);
+          else if (entry.t >= 10) {
+            resumeOfferedFor = playbackId;
+            pendingResumeTime = entry.t;
+            pendingResumeEpisode = null;
+            showResumePill('▶ Продолжить ' + formatTime(entry.t), [key, lastKey()]);
+            return;
+          }
+        }
+      }
+    }
+    // 2) Для сериала — последняя просмотренная серия, если это не текущая.
+    const last = catalogApi ? readSeriesLast() : null;
+    if (last && (last.sea !== curSeason || last.epi !== curEpisode)) {
+      resumeOfferedFor = playbackId;
+      pendingResumeTime = null;
+      pendingResumeEpisode = { sea: last.sea, epi: last.epi, t: last.t };
+      showResumePill(
+        '▶ Продолжить S' + last.sea + 'E' + last.epi + ' · ' + formatTime(last.t),
+        ['pos.' + contentId + '.' + last.sea + '.' + last.epi, lastKey()]);
+    }
+  }
   resumeBtn.addEventListener('click', () => {
-    if (pendingResumeTime != null) seekToTime(pendingResumeTime);
+    const target = pendingResumeEpisode;
+    pendingResumeEpisode = null;
     hideResume(false);
+    if (target) { jumpToEpisode(target.sea, target.epi, target.t); return; }
+    if (pendingResumeTime != null) {
+      const t = pendingResumeTime;
+      pendingResumeTime = null;
+      // 8.x-fix: метаданные могли ещё не прийти — тогда отложим перемотку.
+      if (isFinite(nativeVideo.duration)) seekToTime(t);
+      else pendingEpisodeSeek = t;
+    }
   });
   resumeCloseBtn.addEventListener('click', () => hideResume(true));
   nativeVideo.addEventListener('loadedmetadata', maybeOfferResume);
