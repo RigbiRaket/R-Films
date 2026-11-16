@@ -880,6 +880,44 @@
   .settings-toggle input:checked + .toggle-switch { background: var(--accent); }
   .settings-toggle input:checked + .toggle-switch::after { transform: translateX(16px); }
 
+  /* Шаг 7.6: секции настроек — аккордеон, чтобы панель не была «простынёй». */
+  .settings-title.clickable {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .settings-title.clickable:hover { color: var(--text); }
+  .settings-title .chev { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.15s; }
+  .settings-section.collapsed .settings-title .chev { transform: rotate(-90deg); }
+  .settings-section.collapsed > .settings-options,
+  .settings-section.collapsed > .hotkeys { display: none; }
+
+  /* Шаг 7.6: блок «Горячие клавиши» (подписи видно, не в тултипе). */
+  .hotkeys { display: flex; flex-direction: column; gap: 5px; }
+  .hotkey-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .hotkey-row kbd {
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
   .copy-link-btn {
     width: 100%;
     background: rgba(255,255,255,0.06);
@@ -1296,6 +1334,13 @@
         </div>
         <div class="settings-section">
           <label class="settings-toggle">
+            <span>Заполнить экран</span>
+            <input type="checkbox" id="fillToggle">
+            <span class="toggle-switch"></span>
+          </label>
+        </div>
+        <div class="settings-section">
+          <label class="settings-toggle">
             <span>Автопереход серий</span>
             <input type="checkbox" id="autoNextToggle" checked>
             <span class="toggle-switch"></span>
@@ -1309,6 +1354,20 @@
             </svg>
             <span>Скопировать ссылку</span>
           </button>
+        </div>
+        <!-- Шаг 7.6: шпаргалка по горячим клавишам. -->
+        <div class="settings-section">
+          <div class="settings-title">Горячие клавиши</div>
+          <div class="hotkeys">
+            <div class="hotkey-row"><span>Пуск / пауза</span><kbd>Space</kbd></div>
+            <div class="hotkey-row"><span>±10 секунд</span><kbd>J / L</kbd></div>
+            <div class="hotkey-row"><span>Предыдущая серия</span><kbd>P</kbd></div>
+            <div class="hotkey-row"><span>Следующая серия</span><kbd>N</kbd></div>
+            <div class="hotkey-row"><span>Кадр назад / вперёд</span><kbd>, / .</kbd></div>
+            <div class="hotkey-row"><span>Звук</span><kbd>M</kbd></div>
+            <div class="hotkey-row"><span>Полный экран</span><kbd>F</kbd></div>
+            <div class="hotkey-row"><span>Театр / фокус</span><kbd>T</kbd></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1418,6 +1477,7 @@
   const speedOptions     = $('speedOptions');
   const stepOptions      = $('stepOptions');
   const ambientToggle    = $('ambientToggle');
+  const fillToggle       = $('fillToggle');
   const copyLinkBtn      = $('copyLinkBtn');
   const copyLinkBtnText  = copyLinkBtn.querySelector('span');
   const manualForm       = $('manualForm');
@@ -1846,6 +1906,32 @@
     saveSettings();
   });
 
+  // 7.5: рамка плеера подстраивается под реальные пропорции потока (не жёстко 16:9).
+  function applyVideoAspect() {
+    if (nativeVideo.classList.contains('hidden')) return;
+    const w = nativeVideo.videoWidth, h = nativeVideo.videoHeight;
+    if (w > 0 && h > 0) playerOuter.style.aspectRatio = w + ' / ' + h;
+  }
+  nativeVideo.addEventListener('loadedmetadata', applyVideoAspect);
+  // 7.5: «Вписать/Заполнить» — object-fit contain (по умолчанию) или cover.
+  fillToggle.addEventListener('change', () => {
+    playerContainer.classList.toggle('fill', fillToggle.checked);
+    saveSettings();
+  });
+
+  // 7.6: секции настроек складываются в аккордеон — панель перестаёт быть «простынёй».
+  (function setupAccordion() {
+    const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    settingsPanel.querySelectorAll('.settings-section').forEach(sec => {
+      const title = sec.querySelector('.settings-title');
+      if (!title) return;
+      title.classList.add('clickable');
+      title.insertAdjacentHTML('beforeend', CHEV);
+      sec.classList.add('collapsed');
+      title.addEventListener('click', () => sec.classList.toggle('collapsed'));
+    });
+  })();
+
   // ============================================================
   //  Speed & Step
   // ============================================================
@@ -1933,16 +2019,39 @@
   // Метка качества: NAME мастера, иначе группа аудио (audio1080/audio720/…),
   // иначе — привычный ряд по ширине кадра (2.4:1 даёт высоту 800/534/300).
   function qualityLabel(lv) {
-    if (lv.name) return lv.name;
-    const group = (lv.attrs && lv.attrs.AUDIO) || '';
-    const m = String(group).match(/(\d{3,4})/);
-    if (m) return m[1] + 'p';
-    const w = lv.width || 0;
-    const tiers = [[1900, '1080p'], [1200, '720p'], [900, '540p'],
-                   [760, '480p'], [600, '360p'], [400, '240p']];
-    for (const [min, label] of tiers) if (w >= min) return label;
-    return lv.height ? lv.height + 'p'
-                     : (lv.bitrate ? Math.round(lv.bitrate / 1000) + 'k' : '—');
+    let base;
+    if (lv.name) base = lv.name;
+    else {
+      const group = (lv.attrs && lv.attrs.AUDIO) || '';
+      const m = String(group).match(/(\d{3,4})/);
+      if (m) base = m[1] + 'p';
+      else {
+        const w = lv.width || 0;
+        const tiers = [[1900, '1080p'], [1200, '720p'], [900, '540p'],
+                       [760, '480p'], [600, '360p'], [400, '240p']];
+        base = '';
+        for (const [min, label] of tiers) if (w >= min) { base = label; break; }
+        if (!base) base = lv.height ? lv.height + 'p' : '—';
+      }
+    }
+    // Шаг 7.8: добавляем битрейт — панель выглядит «настоящей».
+    const br = lv.bitrate || parseInt((lv.attrs && lv.attrs.BANDWIDTH) || 0, 10) || 0;
+    if (br > 0) {
+      if (base === '—') base = Math.round(br / 1000) + 'k';
+      else base += ' · ' + (Math.round(br / 100000) / 10) + ' Мбит/с';
+    }
+    return base;
+  }
+
+  // Шаг 7.8: кнопка «Auto» показывает, какой уровень выбран автоматически.
+  let qualityAutoBtn = null;
+  function updateAutoQualityLabel(hls, idx) {
+    if (!qualityAutoBtn) return;
+    if (hls && hls.autoLevelEnabled && hls.levels && hls.levels[idx]) {
+      qualityAutoBtn.textContent = 'Auto (' + qualityLabel(hls.levels[idx]).split(' · ')[0] + ')';
+    } else {
+      qualityAutoBtn.textContent = 'Auto';
+    }
   }
 
   function buildQualityMenu(hls, levels) {
@@ -1953,6 +2062,7 @@
     autoBtn.dataset.level = '-1';
     autoBtn.addEventListener('click', () => { hls.currentLevel = -1; setActiveLevel(-1); savePrefs({ level: 'Auto' }); });
     qualityOptions.appendChild(autoBtn);
+    qualityAutoBtn = autoBtn;
 
     // Движок отдаёт по STREAM-INF на каждую аудиогруппу — уровни дублируются;
     // в меню оставляем по одному на метку.
@@ -1989,10 +2099,15 @@
     });
   }
 
+  // Шаг 7.7: озвучки подписаны видно (имя + язык), а не только в тултипе (на тач его нет).
   function audioTrackLabel(tr, i) {
     const named = audioNames[i];
-    if (named && named.toLowerCase() !== 'delete') return named;
-    return tr.name || tr.lang || ('Дорожка ' + (i + 1));
+    const name = (named && named.toLowerCase() !== 'delete') ? named : (tr.name || '');
+    const lang = String(tr.lang || '').toUpperCase();
+    if (name && lang && name.toUpperCase().indexOf(lang) < 0) return name + ' (' + lang + ')';
+    if (name) return name;
+    if (lang) return lang;
+    return 'Дорожка ' + (i + 1);
   }
   // Записи-«удалено» (служебный `delete` в данных движка) в меню не показываем:
   // это дорожки, которые убрал сам движок.
@@ -2112,7 +2227,8 @@
     episodeOptions.innerHTML = '';
     list.forEach(item => {
       const b = document.createElement('button');
-      b.textContent = String(item.ep);
+      // Шаг 7.7: название серии видно на кнопке, а не только в тултипе (на тач его нет).
+      b.textContent = item.title ? (item.ep + '. ' + item.title) : String(item.ep);
       if (item.title) b.title = item.title;
       b.className = item.ep === curEpisode ? 'active' : '';
       b.addEventListener('click', () => playEpisode(item.ep));
@@ -2336,6 +2452,10 @@
         });
         hls.on(window.Hls.Events.AUDIO_TRACK_SWITCHED,
                () => setActiveAudio(hls.audioTrack));
+        // Шаг 7.8: кнопка «Auto» отражает автоматически выбранный уровень.
+        hls.on(window.Hls.Events.LEVEL_SWITCHED, (_, data) => {
+          updateAutoQualityLabel(hls, data && data.level);
+        });
         const onHlsError = makeHlsErrorHandler(hls, () => clearTimeout(guard));
         hls.on(window.Hls.Events.ERROR, (_, data) => onHlsError(data));
       } else {
@@ -2535,6 +2655,7 @@
     qualitySection.classList.add('hidden');
     audioSection.classList.add('hidden');
     playerContainer.classList.remove('embed-mode');
+    playerOuter.style.aspectRatio = '';  // Шаг 7.5: до метаданных — снова 16:9
   }
 
   function loadFromUrl(rawUrl) {
@@ -2802,6 +2923,8 @@
       muted: nativeVideo.muted,
       ambient: ambientToggle.checked,
       autonext: autoNext,
+      // Шаг 7.5: «Заполнить экран» (object-fit: cover).
+      fill: fillToggle.checked,
       // Шаг 7.3: помним, свёрнуто ли поле ввода ссылки.
       inputCollapsed: manualForm.classList.contains('collapsed'),
     });
@@ -2819,6 +2942,8 @@
     if (s.ambient === true) { ambientToggle.checked = true; startAmbient(); }
     // Шаг 5.1: автопереход серий (по умолчанию включён).
     if (typeof s.autonext === 'boolean') { autoNext = s.autonext; autoNextToggle.checked = autoNext; }
+    // Шаг 7.5: «Заполнить экран» (object-fit: cover).
+    if (s.fill === true) { fillToggle.checked = true; playerContainer.classList.add('fill'); }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
