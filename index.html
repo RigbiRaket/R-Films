@@ -1540,6 +1540,16 @@
               <input type="checkbox" id="autoNextToggle" checked>
               <span class="toggle-switch"></span>
             </label>
+            <!-- Шаг 9.2: таймер сна. Действует только в текущей сессии. -->
+            <div class="settings-title settings-title-sub">Таймер сна</div>
+            <div class="settings-options" id="sleepOptions">
+              <button data-sleep="0" class="active" aria-pressed="true">Выкл</button>
+              <button data-sleep="15" aria-pressed="false">15 мин</button>
+              <button data-sleep="30" aria-pressed="false">30 мин</button>
+              <button data-sleep="45" aria-pressed="false">45 мин</button>
+              <button data-sleep="60" aria-pressed="false">60 мин</button>
+              <button data-sleep="end" aria-pressed="false">Конец серии</button>
+            </div>
           </div>
           <div class="settings-section hidden" id="seasonSection">
             <div class="settings-title">Сезон</div>
@@ -1608,7 +1618,11 @@
   </form>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" async></script>
+<!-- Шаг 9.4: фиксированная версия hls.js + SRI (sha384) и crossorigin —
+     браузер проверит целостность файла и не выполнит подменённый скрипт. -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"
+        integrity="sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni"
+        crossorigin="anonymous" referrerpolicy="no-referrer" async></script>
 <script>
 (() => {
   'use strict';
@@ -1693,6 +1707,7 @@
   const speedValue       = $('speedValue');
   const ambientToggle    = $('ambientToggle');
   const fillToggle       = $('fillToggle');
+  const sleepOptions     = $('sleepOptions');
   const settingsGrid     = $('settingsGrid');
   const settingsStore    = $('settingsStore');
   const settingsBody     = $('settingsBody');
@@ -2366,7 +2381,14 @@
     if (btn.dataset.action === 'copy') {
       const url = new URL(location.href);
       url.searchParams.set('embed', currentUrl);
-      copyText(url.toString());
+      // Шаг 9.1: «ссылка с текущей позиции» — кладём `&t=` (секунды), если
+      // сейчас играет нативное видео с известной длительностью.
+      const hasVideo = !nativeVideo.classList.contains('hidden') &&
+                       isFinite(nativeVideo.duration) && nativeVideo.duration > 0;
+      const t = hasVideo ? Math.floor(nativeVideo.currentTime) : 0;
+      if (t > 0) url.searchParams.set('t', String(t));
+      else url.searchParams.delete('t');
+      copyText(url.toString(), t > 0 ? 'Ссылка с текущей позиции скопирована' : undefined);
       return;
     }
     openSettingsSection($(btn.dataset.target), btn);
@@ -2474,7 +2496,7 @@
     f[next].focus();
   });
 
-  async function copyText(text) {
+  async function copyText(text, okMsg) {
     let ok = false;
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -2498,7 +2520,7 @@
         document.body.removeChild(ta);
       } catch (e) { ok = false; }
     }
-    showToast(ok ? 'Ссылка скопирована' : 'Не удалось скопировать', ok ? undefined : { error: true });
+    showToast(ok ? (okMsg || 'Ссылка скопирована') : 'Не удалось скопировать', ok ? undefined : { error: true });
   }
 
   copyInputBtn.addEventListener('click', () => {
@@ -2797,6 +2819,7 @@
       u.searchParams.set('embed', item.url);
       u.searchParams.set('sea', String(curSeason));
       u.searchParams.set('epi', String(episode));
+      u.searchParams.delete('t');   // Шаг 9.1: стартовая позиция — только для входной ссылки
       history.replaceState(null, '', u.toString());
     } catch (e) {}
     manualUrlInput.value = item.url;
@@ -3571,6 +3594,9 @@
   let resumeTimer = null;
   let pendingEpisodeSeek = null;   // 8.x-fix: перемотка после открытия серии
   let pendingEpisodeJump = null;   // 8.x-fix: отложенный прыжок на серию (до загрузки списка)
+  // Шаг 9.1: точка старта из ссылки (`&t=`) — приоритетнее «продолжить».
+  let explicitStartTime = null;
+  let pendingExplicitSeek = null;  // ждём метаданные, чтобы применить старт
 
   // 8.x-fix: «продолжить» для сериала — помним последнюю просмотренную серию тайтла.
   function lastKey() { return contentId ? 'last.' + contentId : ''; }
@@ -3611,6 +3637,20 @@
   // Плашку показываем один раз на запуск воспроизведения.
   let resumeOfferedFor = -1;
   let pendingResumeEpisode = null;   // {sea, epi, t} — «продолжить» с другой серии
+  // Шаг 9.1: применяем стартовую позицию из `&t=`, когда известна длительность
+  // (у HLS она приходит не всегда вместе с метаданными — ждём `durationchange`).
+  function applyExplicitSeek() {
+    if (pendingExplicitSeek == null) return false;
+    if (!isFinite(nativeVideo.duration) || nativeVideo.duration <= 0) return false;
+    const t = pendingExplicitSeek;
+    pendingExplicitSeek = null;
+    resumeOfferedFor = playbackId;   // плашку «продолжить» не показываем
+    resumePill.classList.add('hidden');
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+    seekToTime(t);
+    return true;
+  }
   function showResumePill(label, targetKeys) {
     // 8.x-fix: плашка «продолжить» висит, пока пользователь не выберет —
     // тап («продолжить») или ✕ («начать с начала»). Так продолжение сериала
@@ -3623,6 +3663,10 @@
   }
   function maybeOfferResume() {
     if (nativeVideo.classList.contains('hidden')) return;
+    // Шаг 9.1: явная точка старта из ссылки (`&t=`) важнее «продолжить» —
+    // первый кадр встаёт ровно туда, куда просили, без плашки.
+    if (explicitStartTime != null) { pendingExplicitSeek = explicitStartTime; explicitStartTime = null; }
+    if (pendingExplicitSeek != null) { applyExplicitSeek(); return; }
     // 8.x-fix: отложенная перемотка применяется всегда (даже если плашка уже
     // показывалась) — например, «продолжить» нажали до прихода метаданных.
     if (pendingEpisodeSeek != null) {
@@ -3682,6 +3726,9 @@
   });
   resumeCloseBtn.addEventListener('click', () => hideResume(true));
   nativeVideo.addEventListener('loadedmetadata', maybeOfferResume);
+  // Шаг 9.1: длительность у части потоков приходит позже метаданных —
+  // добираем стартовую позицию из `&t=` на `durationchange`.
+  nativeVideo.addEventListener('durationchange', () => { applyExplicitSeek(); });
   // Шаг 4.1: после загрузки источника возвращаем выбранную скорость
   // (некоторые движки сбрасывают её при смене `src`).
   nativeVideo.addEventListener('loadedmetadata', () => {
@@ -3717,6 +3764,58 @@
   nextGoBtn.addEventListener('click', () => { cancelAutoNext(); stepEpisode(1); });
   nextCancelBtn.addEventListener('click', cancelAutoNext);
   autoNextToggle.addEventListener('change', () => { autoNext = autoNextToggle.checked; saveSettings(); });
+
+  // ============================================================
+  //  Шаг 9.2: таймер сна (живёт только в текущей сессии, не сохраняется)
+  // ============================================================
+  let sleepDeadline = 0;      // Date.now(), когда ставим паузу (0 — выключен)
+  let sleepTimerId = null;
+  let sleepAtEnd = false;     // пауза по окончании текущей серии
+  let sleepMode = '0';        // выбранный режим (для aria/подсветки)
+  function updateSleepUI() {
+    if (!sleepOptions) return;
+    sleepOptions.querySelectorAll('button[data-sleep]').forEach(b => {
+      const on = b.dataset.sleep === sleepMode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  function clearSleepTimer() {
+    if (sleepTimerId !== null) { clearInterval(sleepTimerId); sleepTimerId = null; }
+    sleepDeadline = 0;
+    sleepAtEnd = false;
+    sleepMode = '0';
+  }
+  function setSleepTimer(value) {
+    clearSleepTimer();
+    sleepMode = value;
+    if (value === 'end') {
+      sleepAtEnd = true;
+      showToast('Таймер сна: пауза после этой серии');
+    } else {
+      const minutes = parseInt(value, 10) || 0;
+      if (minutes > 0) {
+        sleepDeadline = Date.now() + minutes * 60000;
+        sleepTimerId = setInterval(checkSleepTimer, 1000);
+        showToast('Таймер сна: ' + minutes + ' мин');
+      }
+    }
+    updateSleepUI();
+  }
+  function checkSleepTimer() {
+    if (sleepDeadline && Date.now() >= sleepDeadline) {
+      clearSleepTimer();
+      updateSleepUI();
+      try { nativeVideo.pause(); } catch (e) {}
+      showToast('Таймер сна: воспроизведение остановлено');
+    }
+  }
+  if (sleepOptions) {
+    sleepOptions.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-sleep]');
+      if (btn) setSleepTimer(btn.dataset.sleep);
+    });
+  }
 
   // ============================================================
   //  Шаг 5.2–5.4: клавиатура серий/YouTube-паттерн и заголовок
@@ -3765,6 +3864,13 @@
   nativeVideo.addEventListener('ended', () => {
     const k = posKey();
     if (k) store.remove(k);
+    // Шаг 9.2: «Конец серии» — глушим автопереход и останавливаемся.
+    if (sleepAtEnd) {
+      clearSleepTimer();
+      updateSleepUI();
+      showToast('Таймер сна: серия окончена');
+      return;
+    }
     // Шаг 5.1: досмотрено — предлагаем следующую серию.
     scheduleAutoNext();
   });
@@ -3948,6 +4054,10 @@
     const epi = parseInt(params.get('epi'), 10);
     if (sea > 0) curSeason = sea;
     if (epi > 0) curEpisode = epi;
+    // Шаг 9.1: `&t=` (секунды) — стартовая позиция из «ссылки с позиции».
+    // Имеет приоритет над авто-«продолжить»; сбрасывается при смене серии.
+    const startSec = parseFloat(params.get('t'));
+    if (isFinite(startSec) && startSec > 0) explicitStartTime = Math.floor(startSec);
     // 8.x-fix: если бот положил сезон/серию в сам заголовок — берём как запасной.
     if (curSeason == null && titleSeason) curSeason = titleSeason;
     if (curEpisode == null && titleEpisode) curEpisode = titleEpisode;
