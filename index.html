@@ -514,7 +514,8 @@
   }
 
   /* 8.x: индикатор по центру экрана — «пауза», пока ролик на паузе, и
-     треугольник «play» на секунду при старте воспроизведения. */
+     треугольник «play» на секунду при старте воспроизведения.
+     8.x-fix: без круглого затемнения — только иконка (контур держит тень). */
   .center-status {
     position: absolute;
     top: 50%;
@@ -522,9 +523,6 @@
     transform: translate(-50%, -50%);
     width: 84px;
     height: 84px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(2px);
     display: grid;
     place-items: center;
     z-index: 34;
@@ -533,8 +531,12 @@
     transition: opacity 0.3s ease;
   }
   .center-status.show { opacity: 1; }
-  .center-status svg { width: 40px; height: 40px; color: #fff; }
-  /* 8.x-fix: треугольник «play» оптически по центру (bbox 6.5–17.5 → центр 12). */
+  .center-status svg {
+    width: 52px;
+    height: 52px;
+    color: #fff;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
+  }
   .player-container.embed-mode .center-status,
   .player-container.locked .center-status { display: none !important; }
 
@@ -766,11 +768,13 @@
   .ctrl-btn.ep-nav-btn {
     width: auto;
     min-width: 40px;
-    padding: 0 10px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
+    padding: 0 8px;
+    gap: 2px;
+    color: rgba(255,255,255,0.92);
   }
+  /* 8.x-fix: вместо слова «Серия» — точка (как в меню настроек) и стрелка. */
+  .ctrl-btn.ep-nav-btn .ep-nav-dot { width: 8px; height: 8px; color: var(--accent); }
+  .ctrl-btn.ep-nav-btn .ep-nav-chevron { width: 15px; height: 15px; }
   .ctrl-btn.ep-nav-btn:disabled {
     opacity: 0.35;
     cursor: default;
@@ -801,55 +805,6 @@
     align-items: center;
     gap: 4px;
   }
-  /* 8.x-fix: выбор озвучки — кнопка+выпадающий список слева от громкости. */
-  .audio-pick-wrap { position: relative; display: flex; align-items: center; }
-  .audio-pick-btn {
-    width: auto;
-    max-width: 150px;
-    padding: 0 10px;
-    gap: 6px;
-    display: flex;
-    align-items: center;
-  }
-  .audio-pick-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
-  .audio-pick-btn .audio-pick-label {
-    font-size: 12px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .audio-picker {
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 0;
-    min-width: 150px;
-    max-width: 240px;
-    max-height: 45vh;
-    overflow-y: auto;
-    background: var(--panel);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
-    padding: 6px;
-    z-index: 40;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .audio-picker button {
-    text-align: left;
-    padding: 8px 10px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid transparent;
-    border-radius: 7px;
-    color: #fff;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .audio-picker button:hover { background: rgba(255,255,255,0.12); }
-  .audio-picker button.active { background: var(--accent); color: #000; font-weight: 700; }
   .volume-slider {
     width: 72px;
     height: 4px;
@@ -947,6 +902,28 @@
     color: #000;
     border-color: var(--accent);
   }
+  /* 8.x-fix: сезоны и серии — ровной сеткой (ячейки одинаковой ширины и высоты). */
+  .settings-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 6px;
+  }
+  .settings-options-grid button {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 8px 8px;
+    line-height: 1.25;
+    white-space: normal;
+    word-break: break-word;
+  }
+  /* Серия — под сезоном, внутри одного раздела. */
+  .settings-subblock { margin-top: 14px; }
+  .settings-title-sub { margin-top: 0; }
   .settings-toggle {
     display: flex;
     align-items: center;
@@ -1206,7 +1183,7 @@
     .controls { padding: 0 10px 10px; }
     /* Шаг 7.1-fix: нижняя строка — ВСЕГДА одна линия (без переноса): правый
        кластер остаётся справа, а не уезжает вниз. На узком экране время — только
-       текущее, подписи «Серия» — стрелками, ±10 уступают переключателю серий, а
+       текущее, кнопки серий — точка со стрелкой, ±10 уступают переключателю серий, а
        лишние регуляторы (слайдер громкости, «Театр») скрыты — в одну строку они
        не влезают. Громкость остаётся на системных кнопках, «Театр» — по клавише T. */
     .ctrl-row { flex-wrap: nowrap; gap: 4px; }
@@ -1216,12 +1193,8 @@
     .time-display .time-sep,
     #timeTotal { display: none; }
     .spacer { min-width: 0; }
-    .ep-nav-label { display: none; }
     .player-container.has-episodes .skip-btn { display: none; }
     .volume-slider { display: none; }
-    /* 8.x-fix: озвучка на узком экране — только иконкой (подпись не влезает). */
-    .audio-pick-btn { padding: 0 8px; }
-    .audio-pick-btn .audio-pick-label { display: none; }
     #theaterBtn { display: none; }
     /* Шаг 7.1: панель настроек не воюет с нижней строкой — держим сверху
        (и чистим кнопку «Скачать» сверху справа). */
@@ -1378,7 +1351,7 @@
         </div>
         <div class="ctrl-row">
           <!-- 8.x: переключатель серий — слева/справа от кнопок перемотки у паузы. -->
-          <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия">◀<span class="ep-nav-label"> Серия</span></button>
+          <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14.5 7 9.5 12 14.5 17"/></svg></button>
           <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (J)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -1401,21 +1374,13 @@
             </svg>
             <span class="skip-label" id="skipFwdLabel">10</span>
           </button>
-          <button class="ctrl-btn ep-nav-btn hidden" id="nextEpBtn" title="Следующая серия (Shift+→ / N)" aria-label="Следующая серия"><span class="ep-nav-label">Серия </span>▶</button>
+          <button class="ctrl-btn ep-nav-btn hidden" id="nextEpBtn" title="Следующая серия (Shift+→ / N)" aria-label="Следующая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9.5 7 14.5 12 9.5 17"/></svg></button>
           <div class="time-display" id="timeDisplay">
             <span id="timeCurrent">0:00</span>
             <span class="time-sep">/</span>
             <span id="timeTotal">0:00</span>
           </div>
           <div class="spacer"></div>
-          <!-- 8.x-fix: список озвучек — слева от регулятора громкости. -->
-          <div class="audio-pick-wrap hidden" id="audioPickWrap">
-            <button class="ctrl-btn audio-pick-btn" id="audioPickBtn" title="Озвучка" aria-label="Выбор озвучки" aria-haspopup="listbox" aria-expanded="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
-              <span class="audio-pick-label" id="audioPickLabel">Озвучка</span>
-            </button>
-            <div class="audio-picker hidden" id="audioPicker" role="listbox" aria-label="Список озвучек"></div>
-          </div>
           <div class="volume-wrap" id="volumeWrap">
             <button class="ctrl-btn" id="muteBtn" title="Звук (M)">
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1468,11 +1433,8 @@
           <button class="settings-nav-btn" data-target="togglesSection" data-title="Плеер" title="Плеер" aria-label="Плеер">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2.2"/><circle cx="15" cy="12" r="2.2"/><circle cx="8" cy="18" r="2.2"/></svg>
           </button>
-          <button class="settings-nav-btn hidden" data-target="seasonSection" data-title="Сезон" title="Сезон" aria-label="Сезон">
+          <button class="settings-nav-btn hidden" data-target="seasonSection" data-title="Сезоны и серии" title="Сезоны и серии" aria-label="Сезоны и серии">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-          </button>
-          <button class="settings-nav-btn hidden" data-target="episodeSection" data-title="Серия" title="Серия" aria-label="Серия">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
           </button>
           <button class="settings-nav-btn hidden" data-target="qualitySection" data-title="Качество" title="Качество" aria-label="Качество">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><text x="12" y="12.5" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" stroke="none">HD</text><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -1515,11 +1477,11 @@
           </div>
           <div class="settings-section hidden" id="seasonSection">
             <div class="settings-title">Сезон</div>
-            <div class="settings-options" id="seasonOptions"></div>
-          </div>
-          <div class="settings-section hidden" id="episodeSection">
-            <div class="settings-title">Серия</div>
-            <div class="settings-options" id="episodeOptions"></div>
+            <div class="settings-options settings-options-grid" id="seasonOptions"></div>
+            <div class="settings-subblock" id="episodeSection">
+              <div class="settings-title settings-title-sub">Серия</div>
+              <div class="settings-options settings-options-grid" id="episodeOptions"></div>
+            </div>
           </div>
           <div class="settings-section hidden" id="qualitySection">
             <div class="settings-title">Качество</div>
@@ -1652,10 +1614,6 @@
   const qualityOptions   = $('qualityOptions');
   const audioSection     = $('audioSection');
   const audioOptions     = $('audioOptions');
-  const audioPickWrap    = $('audioPickWrap');
-  const audioPickBtn     = $('audioPickBtn');
-  const audioPickLabel   = $('audioPickLabel');
-  const audioPicker      = $('audioPicker');
   const seasonSection    = $('seasonSection');
   const seasonOptions    = $('seasonOptions');
   const episodeSection   = $('episodeSection');
@@ -1694,6 +1652,7 @@
   let contentId = '';        // внутренний id тайтла у движка (&cid=...)
   let curSeason = null;      // текущий сезон
   let curEpisode = null;     // текущая серия
+  let navSeason = null;      // 8.x-fix: сезон, выбранный в меню (просмотр, без запуска)
   let episodesIndex = null;  // {seasons: [...], bySeason: {сезон: [{ep, title, url}]}}
   let isSeeking = false;
   let progressDragging = false;  // 8.x-fix: своё перетаскивание полосы перемотки
@@ -2082,15 +2041,26 @@
     iconVol.classList.toggle('hidden', v === 0);
     iconMute.classList.toggle('hidden', v > 0);
   }
+  // 8.x-fix: ширина кружка ползунка громкости (совпадает с CSS: 12px, 16px на тач).
+  function volumeThumbWidth() {
+    try {
+      if (window.matchMedia &&
+          window.matchMedia('(hover: none), (pointer: coarse)').matches) return 16;
+    } catch (e) {}
+    return 12;
+  }
   function updateVolumeTooltip() {
     // 8.x-fix: значение берём из плеера, а не из ползунка — при переключении M
     // `volumechange` ещё не успевает обновить `slider.value`, из-за чего проценты
     // показывались наоборот (mute → 100%, unmute → 0%).
     const v = nativeVideo.muted ? 0 : nativeVideo.volume;
     const rect = volumeSlider.getBoundingClientRect();
-    const thumbPos = rect.left + rect.width * v;
     const wrapRect = $('volumeWrap').getBoundingClientRect();
-    volumeTooltip.style.left = (thumbPos - wrapRect.left) + 'px';
+    // 8.x-fix: центр кружка отстоит от края ползунка на радиус — без этой поправки
+    // подсказка уезжает в сторону (0% — левее кружка, 100% — правее).
+    const tw = volumeThumbWidth();
+    const center = rect.left + tw / 2 + (rect.width - tw) * v;
+    volumeTooltip.style.left = (center - wrapRect.left) + 'px';
     volumeTooltip.textContent = Math.round(v * 100) + '%';
     // 8.x-fix: подсказка — СРАЗУ НАД ползунком громкости (как в красной рамке),
     // а не над полосой перемотки: `bottom` отсчитываем от низа обёртки до верха ползунка.
@@ -2486,23 +2456,17 @@
   function selectAudio(hls, i, label) {
     try { hls.audioTrack = i; } catch (e) {}
     setActiveAudio(i);
-    if (typeof label === 'string' && label) {
-      audioPickLabel.textContent = label;
-      savePrefs({ audio: label });
-    } else {
-      const active = audioOptions.querySelector('button[data-track="' + i + '"]');
-      if (active) audioPickLabel.textContent = active.textContent;
-    }
+    const act = audioOptions.querySelector('button[data-track="' + i + '"]');
+    const name = (typeof label === 'string' && label)
+      ? label : (act ? act.textContent : '');
+    if (name) savePrefs({ audio: name });
   }
   function buildAudioMenu(hls, tracks) {
     audioOptions.innerHTML = '';
-    audioPicker.innerHTML = '';
     const list = tracks || [];
     const visible = list.map((tr, i) => i).filter(i => !audioTrackHidden(i));
     if (visible.length <= 1) {
       audioSection.classList.add('hidden');
-      audioPickWrap.classList.add('hidden');
-      closeAudioPicker();
       return;
     }
     visible.forEach(i => {
@@ -2513,17 +2477,8 @@
       btn.dataset.track = String(i);
       btn.addEventListener('click', () => selectAudio(hls, i, label));
       audioOptions.appendChild(btn);
-      // Пункт быстрого меню рядом с громкостью.
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.textContent = label;
-      item.dataset.track = String(i);
-      item.setAttribute('role', 'option');
-      item.addEventListener('click', () => { selectAudio(hls, i, label); closeAudioPicker(); });
-      audioPicker.appendChild(item);
     });
     audioSection.classList.remove('hidden');
-    audioPickWrap.classList.remove('hidden');
     // Шаг 4.3: вспоминаем выбранную озвучку этого тайтла.
     const savedAudio = (store.read(titleKey(), null) || {}).audio;
     const pick = savedAudio && Array.from(audioOptions.querySelectorAll('button'))
@@ -2535,33 +2490,7 @@
     audioOptions.querySelectorAll('button').forEach(b => {
       b.classList.toggle('active', b.dataset.track === String(i));
     });
-    audioPicker.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('active', b.dataset.track === String(i));
-    });
-    // 8.x-fix: подпись кнопки у громкости — текущая озвучка.
-    const act = audioOptions.querySelector('button[data-track="' + i + '"]');
-    if (act) audioPickLabel.textContent = act.textContent;
   }
-  // 8.x-fix: быстрое меню озвучек рядом с громкостью.
-  let audioPickerOpen = false;
-  function openAudioPicker() {
-    audioPickerOpen = true;
-    audioPicker.classList.remove('hidden');
-    audioPickBtn.setAttribute('aria-expanded', 'true');
-  }
-  function closeAudioPicker() {
-    audioPickerOpen = false;
-    audioPicker.classList.add('hidden');
-    audioPickBtn.setAttribute('aria-expanded', 'false');
-  }
-  audioPickBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    if (audioPickerOpen) closeAudioPicker(); else openAudioPicker();
-  });
-  audioPicker.addEventListener('click', e => e.stopPropagation());
-  document.addEventListener('click', e => {
-    if (audioPickerOpen && !e.target.closest('#audioPickWrap')) closeAudioPicker();
-  });
 
   // ============================================================
   //  U26: Навигация серий (вариант D)
@@ -2615,7 +2544,13 @@
 
   function renderEpisodeNav() {
     if (!episodesIndex) return;
-    const list = seasonEpisodes(curSeason);
+    // 8.x-fix: сезон в меню — отдельное состояние «просмотра»: можно листать
+    // сезоны, не запуская видео. По умолчанию — текущий сезон.
+    if (navSeason == null || !episodesIndex.bySeason[navSeason]) {
+      navSeason = (curSeason != null && episodesIndex.bySeason[curSeason])
+        ? curSeason : episodesIndex.seasons[0];
+    }
+    const list = seasonEpisodes(navSeason);
     const flat = flatEpisodes();
     const pos = flat.findIndex(x => x.season === curSeason && x.ep === curEpisode);
     // 8.x: кнопки серий стоят по бокам от перемотки у паузы — показываем обе.
@@ -2630,29 +2565,26 @@
     episodesIndex.seasons.forEach(s => {
       const b = document.createElement('button');
       b.textContent = 'Сезон ' + s;
-      b.className = s === curSeason ? 'active' : '';
+      b.className = s === navSeason ? 'active' : '';
+      // 8.x-fix: выбор сезона только переключает список серий (видео не трогаем),
+      // чтобы можно было спокойно выбрать серию внутри сезона.
       b.addEventListener('click', () => {
-        curSeason = s;
-        const first = seasonEpisodes(s)[0];
-        if (first) {
-          playEpisode(first.ep);          // сразу открываем первую серию сезона
-        } else {
-          curEpisode = null;
-          renderEpisodeNav();
-        }
+        navSeason = s;
+        renderEpisodeNav();
       });
       seasonOptions.appendChild(b);
     });
-    seasonSection.classList.toggle('hidden', episodesIndex.seasons.length <= 1);
+    // 8.x-fix: сезоны и серии — под одной кнопкой; раздел виден, если есть серии.
+    seasonSection.classList.toggle('hidden', !flat.length);
 
     episodeOptions.innerHTML = '';
     list.forEach(item => {
       const b = document.createElement('button');
-      // Шаг 7.7: название серии видно на кнопке, а не только в тултипе (на тач его нет).
-      b.textContent = item.title ? (item.ep + '. ' + item.title) : String(item.ep);
-      if (item.title) b.title = item.title;
-      b.className = item.ep === curEpisode ? 'active' : '';
-      b.addEventListener('click', () => playEpisode(item.ep));
+      // 8.x-fix: подпись — название серии как есть («1 серия»), без «1. » перед ним.
+      b.textContent = item.title || String(item.ep);
+      b.title = item.title || ('Серия ' + item.ep);
+      b.className = (navSeason === curSeason && item.ep === curEpisode) ? 'active' : '';
+      b.addEventListener('click', () => { curSeason = navSeason; playEpisode(item.ep); });
       episodeOptions.appendChild(b);
     });
     episodeSection.classList.toggle('hidden', !list.length);
@@ -2664,6 +2596,7 @@
     const item = seasonEpisodes(curSeason).find(x => x.ep === episode);
     if (!item || !item.url) return;
     curEpisode = episode;
+    navSeason = curSeason;   // 8.x-fix: меню следует за воспроизведением
     try {
       const u = new URL(location.href);
       u.searchParams.set('embed', item.url);
@@ -2709,6 +2642,7 @@
       if (curEpisode == null || !list2.some(x => x.ep === curEpisode)) {
         curEpisode = list2.length ? list2[0].ep : null;
       }
+      navSeason = curSeason;   // 8.x-fix: меню открывается на текущем сезоне
       renderEpisodeNav();
     } catch (e) {
       // API недоступен — навигации просто нет, воспроизведение не трогаем.
@@ -3077,10 +3011,6 @@
     try { playerFrame.src = 'about:blank'; } catch {}
     qualitySection.classList.add('hidden');
     audioSection.classList.add('hidden');
-    // 8.x-fix: чистим и быстрое меню озвучек.
-    audioPickWrap.classList.add('hidden');
-    audioPicker.innerHTML = '';
-    closeAudioPicker();
     playerContainer.classList.remove('embed-mode');
     playerOuter.style.aspectRatio = '';  // Шаг 7.5: до метаданных — снова 16:9
   }
