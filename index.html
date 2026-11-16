@@ -155,7 +155,13 @@
     color: var(--text);
     font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* 10.5-fix: 100dvh/100svh вместо 100vh — мобильный тулбар больше не
+       выталкивает лишнюю высоту (из-за неё страница «скроллилась»). */
     min-height: 100vh;
+    min-height: 100dvh;
+    /* 10.5-fix: страница-плеер не скроллится по горизонтали и без «оттягивания». */
+    overflow-x: hidden;
+    overscroll-behavior: none;
     display: flex;
     flex-direction: column;
   }
@@ -258,10 +264,12 @@
     background: #000;
     aspect-ratio: 16/9;
     max-height: calc(100vh - 200px);
+    max-height: calc(100dvh - 200px);
     transition: box-shadow 0.3s ease;
   }
+  /* 10.5-fix: подсветка стала заметнее — больше разлёт и второй контур. */
   .player-outer.ambient {
-    box-shadow: 0 0 60px 10px var(--ambient-color, var(--accent-dim));
+    box-shadow: 0 0 110px 24px var(--ambient-color, var(--accent-dim));
   }
   .player-container {
     position: relative;
@@ -287,13 +295,14 @@
   /* Шаг 7.4: режим «Театр/Фокус» — только видео, служебные блоки скрыты.
      8.x-fix: рамка не выходит за экран (раньше видео растягивалось выше окна и
      страницу приходилось листать). Страница не скроллится, плеер вписан в окно. */
-  body.theater { overflow: hidden; height: 100vh; }
+  body.theater { overflow: hidden; height: 100vh; height: 100dvh; }
   body.theater .topbar,
   body.theater .bottom-input { display: none !important; }
   body.theater .page {
     padding: 0;
     min-height: 0;
     height: 100vh;
+    height: 100dvh;
     justify-content: center;   /* видео по центру по вертикали */
   }
   body.theater .player-outer {
@@ -552,8 +561,8 @@
     to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   }
 
-  /* 8.x: индикатор по центру экрана — «пауза», пока ролик на паузе, и
-     треугольник «play» на секунду при старте воспроизведения.
+  /* 10.5: индикатор по центру — «плей», пока ролик стоит на паузе, и «пауза»
+     на секунду, когда воспроизведение пошло (раньше было наоборот).
      8.x-fix: без круглого затемнения — только иконка (контур держит тень). */
   .center-status {
     position: absolute;
@@ -576,7 +585,9 @@
     color: #fff;
     filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
   }
+  /* 10.5-fix: при открытых настройках центральная иконка не висит поверх панели. */
   .player-container.embed-mode .center-status,
+  .player-container.settings-open .center-status,
   .player-container.locked .center-status { display: none !important; }
 
   /* ====== Error Overlay (Шаг 3.2) ====== */
@@ -901,7 +912,9 @@
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
     padding: 8px;
-    z-index: 30;
+    /* 10.5-fix: панель настроек выше центральной иконки (34) и «большого Play» (35),
+       чтобы те не проступали поверх открытых настроек. */
+    z-index: 40;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     /* U26: со списком серий панель стала выше окна — прокручиваем её. */
     max-height: calc(100% - 122px);
@@ -1156,7 +1169,10 @@
     padding: 0 20px;
   }
   .bottom-input input {
-    flex: 1;
+    /* 10.5-fix: поле ужимается первым (min-width:0) — кнопки больше не вылезают
+       за экран и не появляется горизонтальная прокрутка. */
+    flex: 1 1 auto;
+    min-width: 0;
     background: var(--panel);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
@@ -1173,6 +1189,7 @@
   .copy-input-btn {
     width: 44px;
     height: 44px;
+    flex-shrink: 0;             /* 10.5-fix: не ужимается — равен «глазу» */
     background: var(--panel);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
@@ -1214,7 +1231,10 @@
     background: var(--accent);
     border: none;
     border-radius: 10px;
-    padding: 0 24px;
+    /* 10.5-fix: кнопка не ужимается и с меньшим боковым отступом — влезает
+       в один ряд с полем и иконками на узком экране. */
+    padding: 0 18px;
+    flex-shrink: 0;
     color: #000;
     font-weight: 700;
     font-size: 14px;
@@ -1283,7 +1303,10 @@
     /* Шаг 6.2: в сериале нижняя строка и без PiP набита — кнопку отдаём фильмам. */
     .player-container.has-episodes #pipBtn { display: none; }
     .volume-slider { display: none; }
-    #theaterBtn { display: none; }
+    /* 10.5-fix: место в строке отдаём кнопке «Театр/Фокус» (её раньше прятали,
+       и в обычном масштабе её было не найти). Громкость убираем — её дублирует
+       вертикальный свайп по правому краю и системные кнопки. */
+    .volume-wrap { display: none; }
     /* Шаг 7.1: панель настроек не воюет с нижней строкой — держим сверху
        (и чистим кнопку «Скачать» сверху справа). */
     .settings-panel {
@@ -1300,12 +1323,52 @@
     .bottom-input { padding: 0 10px; }
   }
 
+  /* 10.5-fix: настройки на телефоне (и на низком экране) — «шторка» снизу во всю
+     ширину. Панель вырывается из потока плеера (`fixed`) и прижимается к низу,
+     поэтому больше не режется высотой плеера и прокручивается до конца. */
+  @media (max-width: 760px), (max-height: 560px) {
+    .settings-panel {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      top: auto;
+      bottom: 8px;
+      width: auto;
+      max-height: 82vh;
+      max-height: 82dvh;
+      overflow-y: auto;
+    }
+    .settings-body { height: auto; }
+  }
+
+  /* 10.5-fix: альбомная ориентация телефона — шапка компактная (раньше названия
+     занимали треть экрана), центральная иконка меньше и выше, чтобы не залезать
+     на строку управления; плееру отдаём больше высоты. */
+  @media (max-height: 560px) {
+    .page { padding: 8px 0; }
+    .brand { font-size: 17px; padding: 4px 0 2px; gap: 8px; }
+    .brand-icon { width: 20px; height: 20px; }
+    .title-bar { font-size: 12px; margin-bottom: 6px; }
+    .ver-badge { top: 2px; left: 8px; font-size: 9px; }
+    .source-chip { top: 2px; right: 8px; font-size: 10px; max-width: 45%; }
+    .player-outer {
+      max-height: calc(100vh - 150px);
+      max-height: calc(100dvh - 150px);
+    }
+    .bottom-input { margin-top: 10px; }
+    .controls { padding: 0 12px 10px; }
+    .center-status { width: 64px; height: 64px; top: 30%; }
+    .center-status svg { width: 40px; height: 40px; }
+  }
+
   /* ====== Тач-устройства (Шаг 2 + 7.1) ======
      На тач нет hover. Кнопки нижней строки — крупные тап-зоны (≥42px);
      лишние регуляторы на узком экране скрыты (см. `max-width: 760px`). */
   @media (hover: none), (pointer: coarse) {
-    /* Шаг 2.1: кнопка блокировки видна без hover — иначе на тач её не найти. */
-    .lock-btn { opacity: 1; }
+    /* Шаг 2.1: кнопка блокировки видна без hover — иначе на тач её не найти.
+       10.5-fix: но в режиме блокировки она прячется (по тапу всплывает) — иначе
+       «замочек» висел бы на экране всегда. */
+    .player-container:not(.locked) .lock-btn { opacity: 1; }
     /* Крупные тап-зоны у overlay-кнопок (≥44px). */
     .lock-btn, .dl-btn { width: 44px; height: 44px; }
     .lock-btn svg { width: 20px; height: 20px; }
@@ -1930,7 +1993,8 @@
   nativeVideo.addEventListener('play', hideBigPlay);
 
   // ============================================================
-  //  8.x: индикатор по центру — «пауза» на паузе, «play» на старте
+  //  10.5: индикатор по центру — «плей», пока ролик на паузе,
+  //  и «пауза» на секунду, когда воспроизведение пошло.
   // ============================================================
   const centerStatusPlay  = centerStatus.querySelector('.cs-play');
   const centerStatusPause = centerStatus.querySelector('.cs-pause');
@@ -1940,8 +2004,8 @@
     centerStatusPause.classList.toggle('hidden', kind !== 'pause');
     centerStatus.classList.add('show');
     clearTimeout(centerStatusTimer);
-    // Треугольник виден секунду; «пауза» держится, пока ролик на паузе.
-    if (kind === 'play') {
+    // «Пауза» (ролик играет) видна секунду; «плей» держится, пока идёт пауза.
+    if (kind === 'pause') {
       centerStatusTimer = setTimeout(() => centerStatus.classList.remove('show'), 900);
     }
   }
@@ -1949,11 +2013,12 @@
     clearTimeout(centerStatusTimer);
     centerStatus.classList.remove('show');
   }
-  nativeVideo.addEventListener('play', () => showCenterStatus('play'));
+  nativeVideo.addEventListener('play', () => showCenterStatus('pause'));
   nativeVideo.addEventListener('pause', () => {
     if (nativeVideo.ended) return;   // конец ролика — это не «пауза»
     if (nativeVideo.classList.contains('hidden')) return;
-    showCenterStatus('pause');
+    if (settingsOpen) return;        // 10.5-fix: не проступаем поверх настроек
+    showCenterStatus('play');
   });
   nativeVideo.addEventListener('ended', hideCenterStatus);
 
@@ -2096,14 +2161,26 @@
         }
         const px = data.length / 4;
         r = Math.round(r / px); g = Math.round(g / px); b = Math.round(b / px);
-        playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.4)`);
+        // 10.5-fix: на тёмных кадрах средний цвет почти чёрный и подсветку «не
+        // видно». Ограниченно поднимаем яркость, сохраняя оттенок (как в ambilight);
+        // яркие кадры не трогаем.
+        const maxC = Math.max(r, g, b);
+        const boost = maxC > 0 ? Math.max(1, Math.min(8, 190 / maxC)) : 1;
+        r = Math.min(255, Math.round(r * boost));
+        g = Math.min(255, Math.round(g * boost));
+        b = Math.min(255, Math.round(b * boost));
+        playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.7)`);
         playerOuter.classList.add('ambient');
         ambientErrorStreak = 0;
       } catch (e) {
-        // Кадр недоступен (CORS/secure). После нескольких отказов подряд замолкаем,
-        // чтобы не жечь CPU впустую.
-        playerOuter.classList.remove('ambient');
-        if (++ambientErrorStreak >= 5) { stopAmbient(); return; }
+        // 10.5-fix: кадр недоступен (cross-origin/taint — напр. нативный HLS на
+        // iOS или прямой MP4 с чужого домена). Раньше подсветка молча гасла, и
+        // тумблер «Ambient» выглядел нерабочим. Теперь оставляем мягкую
+        // статичную подсветку акцентом и пробуем реже, не жгя CPU.
+        ambientErrorStreak++;
+        playerOuter.style.setProperty('--ambient-color', 'rgba(57, 255, 20, 0.3)');
+        playerOuter.classList.add('ambient');
+        lastAmbientAt = now + 1400;   // следующий замер — не раньше ~1.5 с
       }
       ambientLoop = requestAnimationFrame(tick);
     };
@@ -2544,6 +2621,9 @@
     const hadFocus = settingsPanel.contains(document.activeElement);   // Шаг 8.2
     settingsOpen = typeof force === 'boolean' ? force : !settingsOpen;
     settingsPanel.classList.toggle('hidden', !settingsOpen);
+    // 10.5-fix: центральная иконка не висит поверх открытых настроек.
+    playerContainer.classList.toggle('settings-open', settingsOpen);
+    if (settingsOpen) hideCenterStatus();
     settingsBtn.setAttribute('aria-expanded', settingsOpen ? 'true' : 'false');   // Шаг 8.2
     if (settingsOpen) {
       playerContainer.classList.add('controls-visible');
@@ -3436,14 +3516,23 @@
     clearTimeout(seekFlashTimer);
     seekFlashTimer = setTimeout(() => seekFlash.classList.remove('show'), 650);
   }
-  // 10.4: лёгкая вибрация (если тумблер включён и API доступно).
+  // 10.4: вибрация (если тумблер включён и API доступно). 10.5-fix: проверяем
+  // наличие функции — на iOS (Safari/WebView) Vibration API нет вовсе.
   function haptic(ms) {
     if (!vibroOn) return;
-    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+    try {
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+    } catch (e) {}
   }
 
   function handlePointerDown(e) {
-    if (isLocked || e.button !== 0) return;
+    // 10.5-fix: в блокировке тап по видео показывает «замочек» — иначе на
+    // телефоне его не вернуть (hover там нет, а таймер его прячет).
+    if (isLocked) {
+      if (!e.target.closest('.lock-btn')) showLockBtn();
+      return;
+    }
+    if (e.button !== 0) return;
     if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.lock-btn') || e.target.closest('.dl-btn') || e.target.closest('.big-play') || e.target.closest('.error-overlay')) return;
     if (nativeVideo.classList.contains('hidden')) return; // iframe mode
 
@@ -3562,10 +3651,11 @@
 
     if (dt < 300) {
       if (clickTimeout) clearTimeout(clickTimeout);
-      // 8.x: одиночный клик в ЛЮБОЙ области ставит/снимает паузу (раньше — только
-      // по центру). Двойной клик (перемотка по бокам / фуллскрин по центру)
-      // отменяет это срабатывание в `handleDoubleClick`.
-      clickTimeout = setTimeout(() => { togglePlay(); haptic(8); }, 250);   // 10.4: вибрация на тапе
+      // 10.5-fix: отклик даём сразу на тап (внутри жеста) и делаем его ощутимым —
+      // 8 мс многие телефоны попросту не «прокручивают». Сам play/pause — с
+      // задержкой 250 мс, чтобы успеть распознать двойной тап.
+      haptic(25);
+      clickTimeout = setTimeout(() => { togglePlay(); }, 250);
     }
   }
 
@@ -3582,7 +3672,7 @@
     if (x < 0.33) { skipBy(-currentStep); flashSeek(-currentStep, 'left'); }
     else if (x > 0.66) { skipBy(currentStep); flashSeek(currentStep, 'right'); }
     else toggleFullscreen();
-    if (x < 0.33 || x > 0.66) haptic(10);   // 10.4: вибрация на перемотке
+    if (x < 0.33 || x > 0.66) haptic(35);   // 10.5-fix: вибрация на перемотке (ощутимее)
   }
 
   playerContainer.addEventListener('pointerdown', handlePointerDown);
@@ -4243,7 +4333,12 @@
     vibrateToggle.addEventListener('change', () => {
       vibroOn = vibrateToggle.checked;
       saveSettings();
-      if (vibroOn) haptic(8);   // короткий отклик на включение
+      if (vibroOn) {
+        // 10.5-fix: если API нет (например, iPhone) — честно говорим об этом,
+        // иначе тумблер выглядит нерабочим.
+        if (typeof navigator.vibrate === 'function') haptic(40);
+        else showToast('Вибрация не поддерживается на этом устройстве');
+      }
     });
   }
 
