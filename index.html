@@ -191,6 +191,21 @@
     filter: drop-shadow(0 0 8px var(--accent-dim));
   }
 
+  /* Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт его в ссылку). */
+  .title-bar {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto 14px;
+    padding: 0 20px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* ====== Player Wrapper ====== */
   .player-outer {
     position: relative;
@@ -276,6 +291,30 @@
   .player-container.locked iframe {
     pointer-events: none;
   }
+
+  /* Шаг 1.2: кнопка «Скачать» (прямой поток `&download=`).
+     Оверлей в правом верхнем углу — не участвует в ширине нижней панели. */
+  .dl-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    z-index: 30;
+    text-decoration: none;
+    backdrop-filter: blur(8px);
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+  }
+  .dl-btn:hover { background: rgba(40, 42, 50, 0.9); color: var(--accent); }
+  .dl-btn:active { transform: scale(0.94); }
+  .dl-btn svg { width: 20px; height: 20px; }
 
   /* Speed/Seek Drag Indicator */
   .speed-drag-indicator {
@@ -750,6 +789,7 @@
   @media (max-width: 760px) {
     .brand { font-size: 20px; padding: 12px 0; }
     .brand-icon { width: 24px; height: 24px; }
+    .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 10px; }
     .controls { padding: 0 10px 10px; }
     .ctrl-btn { width: 36px; height: 36px; }
     .play-btn { width: 40px; height: 40px; }
@@ -769,6 +809,8 @@
     </svg>
     <span>R·Films</span>
   </div>
+
+  <div class="title-bar hidden" id="titleBar"></div>
 
   <div class="player-outer" id="playerOuter">
     <div class="player-container" id="playerContainer">
@@ -804,6 +846,15 @@
           <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
         </svg>
       </button>
+
+      <a class="dl-btn hidden" id="downloadBtn" href="#" download
+         target="_blank" rel="noopener" title="Скачать видео" aria-label="Скачать видео">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </a>
 
       <div class="controls" id="controls">
         <div class="progress-wrapper" id="progressWrapper">
@@ -982,6 +1033,8 @@
   const seekPreview      = $('seekPreview');
   const seekPreviewTime  = $('seekPreviewTime');
   const lockBtn          = $('lockBtn');
+  const downloadBtn      = $('downloadBtn');
+  const titleBar         = $('titleBar');
   const controlsEl       = $('controls');
   const progressWrapper  = $('progressWrapper');
   const progressBuffer   = $('progressBuffer');
@@ -1395,6 +1448,10 @@
   copyInputBtn.addEventListener('click', () => {
     copyText(manualUrlInput.value);
   });
+
+  // Шаг 1.2: после клика по «Скачать» снимаем фокус — иначе Space снова
+  // срабатывает по ссылке и мешает паузе/воспроизведению.
+  downloadBtn.addEventListener('click', () => setTimeout(() => downloadBtn.blur(), 0));
   
   manualUrlInput.addEventListener('input', () => {
     copyInputBtn.classList.toggle('hidden', !manualUrlInput.value.trim());
@@ -2008,7 +2065,7 @@
   // ============================================================
   function handlePointerDown(e) {
     if (isLocked || e.button !== 0) return;
-    if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.lock-btn')) return;
+    if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.lock-btn') || e.target.closest('.dl-btn')) return;
     if (nativeVideo.classList.contains('hidden')) return; // iframe mode
 
     const rect = playerContainer.getBoundingClientRect();
@@ -2104,7 +2161,7 @@
 
   function handleDoubleClick(e) {
     if (isLocked) return;
-    if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.lock-btn')) return;
+    if (e.target.closest('.controls') || e.target.closest('.settings-panel') || e.target.closest('.lock-btn') || e.target.closest('.dl-btn')) return;
     if (nativeVideo.classList.contains('hidden')) return;
     
     if (clickTimeout) clearTimeout(clickTimeout);
@@ -2183,6 +2240,21 @@
     const fallback = params.get('fallback');
     if (audio) audioNames = audio.split('|');
     if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
+    // Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт «Название — Озвучка — S1E2»).
+    const pageTitle = (params.get('title') || '').trim();
+    if (pageTitle) {
+      document.title = pageTitle + ' — R·Films';
+      titleBar.textContent = pageTitle;
+      titleBar.classList.remove('hidden');
+    }
+    // Шаг 1.2: кнопка «Скачать» — только для прямого потока (`&download=`).
+    // `.m3u8` в download бот не кладёт (`make_stream` это запрещает), но
+    // подстраховываемся здесь той же проверкой, что `is_hls` в боте.
+    const download = params.get('download');
+    if (download && !/\.m3u8(\?|#|$)/i.test(download)) {
+      downloadBtn.href = download;
+      downloadBtn.classList.remove('hidden');
+    }
     // U26: навигация серий (вариант D) — id тайтла, база catalog-api и
     // текущие сезон/серия; список серий подтянет `loadEpisodeNav`.
     const cid = params.get('cid');
