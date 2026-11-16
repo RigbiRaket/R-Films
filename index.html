@@ -857,6 +857,8 @@
     /* U26: со списком серий панель стала выше окна — прокручиваем её. */
     max-height: calc(100% - 88px);
     overflow-y: auto;
+    /* 8.x: вторую страницу меню прячем по горизонтали (уезжает в бок). */
+    overflow-x: hidden;
     overscroll-behavior: contain;
     animation: settings-in 0.15s ease-out;
   }
@@ -925,20 +927,68 @@
   .settings-toggle input:checked + .toggle-switch { background: var(--accent); }
   .settings-toggle input:checked + .toggle-switch::after { transform: translateX(16px); }
 
-  /* Шаг 7.6: секции настроек — аккордеон, чтобы панель не была «простынёй». */
-  .settings-title.clickable {
+  /* 8.x: двухуровневое меню настроек — «страница раздела» уезжает в бок,
+     а на её месте появляется новое меню. Заголовки разделов — иконки
+     (расшифровка в подсказке при наведении). */
+  .settings-track {
+    display: flex;
+    align-items: flex-start;
+    width: 200%;
+    transition: transform 0.25s ease;
+  }
+  .settings-panel.sub .settings-track { transform: translateX(-50%); }
+  .settings-page { flex: 0 0 50%; min-width: 0; }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 6px;
+    padding: 4px 4px 10px;
+  }
+  .settings-grid button {
+    height: 44px;
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .settings-grid button:hover { background: rgba(255,255,255,0.12); color: var(--accent); }
+  .settings-grid button svg { width: 20px; height: 20px; }
+  .settings-subhead {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
-    border-radius: 6px;
-    transition: color 0.15s;
+    gap: 8px;
+    padding: 4px 4px 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
   }
-  .settings-title.clickable:hover { color: var(--text); }
-  .settings-title .chev { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.15s; }
-  .settings-section.collapsed .settings-title .chev { transform: rotate(-90deg); }
-  .settings-section.collapsed > .settings-options { display: none; }
+  .settings-back {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .settings-back:hover { background: rgba(255,255,255,0.14); color: var(--accent); }
+  .settings-back svg { width: 18px; height: 18px; }
+  .settings-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  /* Названия разделов теперь в шапке страницы — внутри не дублируем. */
+  .settings-title { display: none; }
 
   .copy-link-btn {
     width: 100%;
@@ -1322,74 +1372,104 @@
       </div>
 
       <div class="settings-panel hidden" id="settingsPanel">
-        <div class="settings-section hidden" id="seasonSection">
-          <div class="settings-title">Сезон</div>
-          <div class="settings-options" id="seasonOptions"></div>
-        </div>
-        <div class="settings-section hidden" id="episodeSection">
-          <div class="settings-title">Серия</div>
-          <div class="settings-options" id="episodeOptions"></div>
-        </div>
-        <div class="settings-section hidden" id="qualitySection">
-          <div class="settings-title">Качество</div>
-          <div class="settings-options" id="qualityOptions"></div>
-        </div>
-        <div class="settings-section hidden" id="audioSection">
-          <div class="settings-title">Озвучка</div>
-          <div class="settings-options" id="audioOptions"></div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-title">Скорость</div>
-          <div class="settings-options" id="speedOptions">
-            <button data-speed="0.5">0.5×</button>
-            <button data-speed="0.75">0.75×</button>
-            <button data-speed="1" class="active">1×</button>
-            <button data-speed="1.25">1.25×</button>
-            <button data-speed="1.5">1.5×</button>
-            <button data-speed="2">2×</button>
-            <button data-speed="3">3×</button>
-            <button data-speed="4">4×</button>
+        <div class="settings-track" id="settingsTrack">
+          <!-- 8.x: корневая страница меню — иконки разделов (подсказки в title). -->
+          <div class="settings-page" id="settingsPageRoot">
+            <div class="settings-grid" id="settingsGrid">
+              <button class="settings-nav-btn hidden" data-target="seasonSection" data-title="Сезон" title="Сезон" aria-label="Сезон">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </button>
+              <button class="settings-nav-btn hidden" data-target="episodeSection" data-title="Серия" title="Серия" aria-label="Серия">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
+              </button>
+              <button class="settings-nav-btn hidden" data-target="qualitySection" data-title="Качество" title="Качество" aria-label="Качество">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              </button>
+              <button class="settings-nav-btn hidden" data-target="audioSection" data-title="Озвучка" title="Озвучка" aria-label="Озвучка">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+              </button>
+              <button class="settings-nav-btn" data-target="speedSection" data-title="Скорость" title="Скорость" aria-label="Скорость">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </button>
+              <button class="settings-nav-btn" data-target="stepSection" data-title="Шаг перемотки" title="Шаг перемотки" aria-label="Шаг перемотки">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+              </button>
+              <button class="settings-nav-btn" data-action="copy" title="Скопировать ссылку" aria-label="Скопировать ссылку">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </button>
+            </div>
+            <div class="settings-section" id="togglesSection">
+              <label class="settings-toggle">
+                <span>Ambient-подсветка</span>
+                <input type="checkbox" id="ambientToggle">
+                <span class="toggle-switch"></span>
+              </label>
+              <label class="settings-toggle">
+                <span>Заполнить экран</span>
+                <input type="checkbox" id="fillToggle">
+                <span class="toggle-switch"></span>
+              </label>
+              <label class="settings-toggle">
+                <span>Автопереход серий</span>
+                <input type="checkbox" id="autoNextToggle" checked>
+                <span class="toggle-switch"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Страница раздела: сюда переносится выбранный раздел. -->
+          <div class="settings-page" id="settingsPageSub">
+            <div class="settings-subhead">
+              <button class="settings-back" id="settingsBackBtn" aria-label="Назад">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span class="settings-subtitle" id="settingsSubTitle"></span>
+            </div>
+            <div id="settingsSubBody"></div>
           </div>
         </div>
-        <div class="settings-section">
-          <div class="settings-title">Шаг перемотки</div>
-          <div class="settings-options" id="stepOptions">
-            <button data-step="5">5 с</button>
-            <button data-step="10" class="active">10 с</button>
-            <button data-step="15">15 с</button>
-            <button data-step="30">30 с</button>
-            <button data-step="60">60 с</button>
+
+        <!-- Хранилище разделов (вне экрана, пока не выбран). -->
+        <div class="settings-store hidden" id="settingsStore">
+          <div class="settings-section hidden" id="seasonSection">
+            <div class="settings-title">Сезон</div>
+            <div class="settings-options" id="seasonOptions"></div>
           </div>
-        </div>
-        <div class="settings-section">
-          <label class="settings-toggle">
-            <span>Ambient-подсветка</span>
-            <input type="checkbox" id="ambientToggle">
-            <span class="toggle-switch"></span>
-          </label>
-        </div>
-        <div class="settings-section">
-          <label class="settings-toggle">
-            <span>Заполнить экран</span>
-            <input type="checkbox" id="fillToggle">
-            <span class="toggle-switch"></span>
-          </label>
-        </div>
-        <div class="settings-section">
-          <label class="settings-toggle">
-            <span>Автопереход серий</span>
-            <input type="checkbox" id="autoNextToggle" checked>
-            <span class="toggle-switch"></span>
-          </label>
-        </div>
-        <div class="settings-section">
-          <button class="copy-link-btn" id="copyLinkBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-            <span>Скопировать ссылку</span>
-          </button>
+          <div class="settings-section hidden" id="episodeSection">
+            <div class="settings-title">Серия</div>
+            <div class="settings-options" id="episodeOptions"></div>
+          </div>
+          <div class="settings-section hidden" id="qualitySection">
+            <div class="settings-title">Качество</div>
+            <div class="settings-options" id="qualityOptions"></div>
+          </div>
+          <div class="settings-section hidden" id="audioSection">
+            <div class="settings-title">Озвучка</div>
+            <div class="settings-options" id="audioOptions"></div>
+          </div>
+          <div class="settings-section" id="speedSection">
+            <div class="settings-title">Скорость</div>
+            <div class="settings-options" id="speedOptions">
+              <button data-speed="0.5">0.5×</button>
+              <button data-speed="0.75">0.75×</button>
+              <button data-speed="1" class="active">1×</button>
+              <button data-speed="1.25">1.25×</button>
+              <button data-speed="1.5">1.5×</button>
+              <button data-speed="2">2×</button>
+              <button data-speed="3">3×</button>
+              <button data-speed="4">4×</button>
+            </div>
+          </div>
+          <div class="settings-section" id="stepSection">
+            <div class="settings-title">Шаг перемотки</div>
+            <div class="settings-options" id="stepOptions">
+              <button data-step="5">5 с</button>
+              <button data-step="10" class="active">10 с</button>
+              <button data-step="15">15 с</button>
+              <button data-step="30">30 с</button>
+              <button data-step="60">60 с</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1500,8 +1580,11 @@
   const stepOptions      = $('stepOptions');
   const ambientToggle    = $('ambientToggle');
   const fillToggle       = $('fillToggle');
-  const copyLinkBtn      = $('copyLinkBtn');
-  const copyLinkBtnText  = copyLinkBtn.querySelector('span');
+  const settingsGrid     = $('settingsGrid');
+  const settingsStore    = $('settingsStore');
+  const settingsSubBody  = $('settingsSubBody');
+  const settingsSubTitle = $('settingsSubTitle');
+  const settingsBackBtn  = $('settingsBackBtn');
   const manualForm       = $('manualForm');
   const inputToggleBtn   = $('inputToggleBtn');
   const manualUrlInput   = $('manualUrl');
@@ -2021,18 +2104,55 @@
     saveSettings();
   });
 
-  // 7.6: секции настроек складываются в аккордеон — панель перестаёт быть «простынёй».
-  (function setupAccordion() {
-    const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-    settingsPanel.querySelectorAll('.settings-section').forEach(sec => {
-      const title = sec.querySelector('.settings-title');
-      if (!title) return;
-      title.classList.add('clickable');
-      title.insertAdjacentHTML('beforeend', CHEV);
-      sec.classList.add('collapsed');
-      title.addEventListener('click', () => sec.classList.toggle('collapsed'));
+  // ============================================================
+  //  8.x: двухуровневое меню настроек (уезжает в бок) + копирование ссылки
+  // ============================================================
+  let settingsSectionOpen = null;
+
+  function openSettingsSection(section, title) {
+    if (!section) return;
+    settingsSubBody.appendChild(section);      // переносим раздел на страницу раздела
+    settingsSubTitle.textContent = title || '';
+    settingsSectionOpen = section;
+    settingsPanel.classList.add('sub');
+    settingsPanel.scrollTop = 0;
+  }
+  function closeSettingsSection() {
+    if (settingsSectionOpen) {
+      settingsStore.appendChild(settingsSectionOpen);   // возвращаем раздел в хранилище
+      settingsSectionOpen = null;
+    }
+    settingsPanel.classList.remove('sub');
+  }
+  // Иконка раздела видна, только если сам раздел доступен (есть серии/качества/…).
+  function refreshSettingsRoot() {
+    settingsGrid.querySelectorAll('.settings-nav-btn[data-target]').forEach(btn => {
+      const sec = $(btn.dataset.target);
+      if (sec) btn.classList.toggle('hidden', sec.classList.contains('hidden'));
     });
-  })();
+    // Открытый раздел мог стать недоступным (например, сменили поток) — уходим назад.
+    if (settingsSectionOpen && settingsSectionOpen.classList.contains('hidden')) {
+      closeSettingsSection();
+    }
+  }
+  settingsGrid.addEventListener('click', e => {
+    const btn = e.target.closest('.settings-nav-btn');
+    if (!btn) return;
+    if (btn.dataset.action === 'copy') {
+      const url = new URL(location.href);
+      url.searchParams.set('embed', currentUrl);
+      copyText(url.toString());
+      return;
+    }
+    openSettingsSection($(btn.dataset.target), btn.dataset.title);
+  });
+  settingsBackBtn.addEventListener('click', closeSettingsSection);
+  try {
+    const obs = new MutationObserver(refreshSettingsRoot);
+    obs.observe(settingsStore, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    obs.observe(settingsSubBody, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  } catch (e) {}
+  refreshSettingsRoot();
 
   // ============================================================
   //  Speed & Step
@@ -2074,7 +2194,11 @@
     if (settingsOpen) {
       playerContainer.classList.add('controls-visible');
       clearTimeout(controlsHideTimer);
-    } else showControls();
+    } else {
+      // 8.x: закрывая меню, всегда возвращаемся на корневую страницу.
+      closeSettingsSection();
+      showControls();
+    }
   }
   settingsBtn.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
   document.addEventListener('click', e => {
@@ -2096,12 +2220,6 @@
       showToast('Не удалось скопировать', { error: true });
     }
   }
-
-  copyLinkBtn.addEventListener('click', () => {
-    const url = new URL(location.href);
-    url.searchParams.set('embed', currentUrl);
-    copyText(url.toString(), copyLinkBtnText, 'Скопировать ссылку');
-  });
 
   copyInputBtn.addEventListener('click', () => {
     copyText(manualUrlInput.value);
