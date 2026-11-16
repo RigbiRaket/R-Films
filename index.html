@@ -961,6 +961,14 @@
     white-space: normal;
     word-break: break-word;
   }
+  /* 10.4: кнопки таймера сна — ровной сеткой 2×2, «Конец серии» во всю ширину;
+     отступ слева привязывает их к тумблеру «Таймер сна» над ними. */
+  #sleepOptions {
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 2px;
+    padding: 0 4px 2px 4px;
+  }
+  #sleepOptions button[data-sleep="end"] { grid-column: 1 / -1; }
   /* Серия — под сезоном, внутри одного раздела (отступ задаёт лента сезонов). */
   .settings-subblock { margin-top: 0; }
   .settings-title-sub { margin-top: 0; }
@@ -1601,12 +1609,22 @@
               <input type="checkbox" id="wakeToggle" checked>
               <span class="toggle-switch"></span>
             </label>
-            <!-- Шаг 9.2: таймер сна. Действует только в текущей сессии. -->
-            <div class="settings-title settings-title-sub">Таймер сна</div>
-            <div class="settings-options" id="sleepOptions">
-              <button data-sleep="0" class="active" aria-pressed="true">Выкл</button>
+            <!-- Шаг 10.4: лёгкая вибрация на тапе и перемотке. -->
+            <label class="settings-toggle">
+              <span>Вибрация</span>
+              <input type="checkbox" id="vibrateToggle" checked>
+              <span class="toggle-switch"></span>
+            </label>
+            <!-- Шаг 9.2/10.4: таймер сна — тумблер; кнопки времени появляются
+                 ниже только после включения. Живёт только в текущей сессии. -->
+            <label class="settings-toggle">
+              <span>Таймер сна</span>
+              <input type="checkbox" id="sleepToggle">
+              <span class="toggle-switch"></span>
+            </label>
+            <div class="settings-options settings-options-grid hidden" id="sleepOptions">
               <button data-sleep="15" aria-pressed="false">15 мин</button>
-              <button data-sleep="30" aria-pressed="false">30 мин</button>
+              <button data-sleep="30" class="active" aria-pressed="true">30 мин</button>
               <button data-sleep="45" aria-pressed="false">45 мин</button>
               <button data-sleep="60" aria-pressed="false">60 мин</button>
               <button data-sleep="end" aria-pressed="false">Конец серии</button>
@@ -1776,7 +1794,9 @@
   const ambientToggle    = $('ambientToggle');
   const fillToggle       = $('fillToggle');
   const sleepOptions     = $('sleepOptions');
+  const sleepToggle      = $('sleepToggle');
   const wakeToggle       = $('wakeToggle');
+  const vibrateToggle    = $('vibrateToggle');
   const settingsGrid     = $('settingsGrid');
   const settingsStore    = $('settingsStore');
   const settingsBody     = $('settingsBody');
@@ -3416,6 +3436,11 @@
     clearTimeout(seekFlashTimer);
     seekFlashTimer = setTimeout(() => seekFlash.classList.remove('show'), 650);
   }
+  // 10.4: лёгкая вибрация (если тумблер включён и API доступно).
+  function haptic(ms) {
+    if (!vibroOn) return;
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+  }
 
   function handlePointerDown(e) {
     if (isLocked || e.button !== 0) return;
@@ -3540,7 +3565,7 @@
       // 8.x: одиночный клик в ЛЮБОЙ области ставит/снимает паузу (раньше — только
       // по центру). Двойной клик (перемотка по бокам / фуллскрин по центру)
       // отменяет это срабатывание в `handleDoubleClick`.
-      clickTimeout = setTimeout(togglePlay, 250);
+      clickTimeout = setTimeout(() => { togglePlay(); haptic(8); }, 250);   // 10.4: вибрация на тапе
     }
   }
 
@@ -3557,6 +3582,7 @@
     if (x < 0.33) { skipBy(-currentStep); flashSeek(-currentStep, 'left'); }
     else if (x > 0.66) { skipBy(currentStep); flashSeek(currentStep, 'right'); }
     else toggleFullscreen();
+    if (x < 0.33 || x > 0.66) haptic(10);   // 10.4: вибрация на перемотке
   }
 
   playerContainer.addEventListener('pointerdown', handlePointerDown);
@@ -3677,6 +3703,7 @@
   let autoNext = true;                    // 5.1: автопереход к следующей серии
   let wakeOn = true;                      // 10.1: не гасить экран во время просмотра
   let brightness = 1;                     // 10.2: яркость видео (0.2–1, фильтр на <video>)
+  let vibroOn = true;                     // 10.4: лёгкая вибрация на тапе/перемотке
 
   // 4.1: настройки (скорость, шаг, громкость, ambient).
   function saveSettings() {
@@ -3695,6 +3722,8 @@
       wake: wakeOn,
       // Шаг 10.2: яркость (жест по левому краю).
       bright: brightness,
+      // Шаг 10.4: вибрация.
+      vibrate: vibroOn,
     });
   }
   function restoreSettings() {
@@ -3717,6 +3746,8 @@
     if (typeof s.wake === 'boolean') { wakeOn = s.wake; wakeToggle.checked = wakeOn; }
     // Шаг 10.2: яркость (по умолчанию 100%).
     if (typeof s.bright === 'number') applyBrightness(s.bright);
+    // Шаг 10.4: вибрация (по умолчанию включена).
+    if (typeof s.vibrate === 'boolean') { vibroOn = s.vibrate; vibrateToggle.checked = vibroOn; }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
@@ -3928,8 +3959,14 @@
   let sleepTimerId = null;
   let sleepAtEnd = false;     // пауза по окончании текущей серии
   let sleepMode = '0';        // выбранный режим (для aria/подсветки)
+  const DEFAULT_SLEEP = '30'; // 10.4: длительность по умолчанию при включении
+  let lastSleepMode = DEFAULT_SLEEP; // 10.4: помним последний выбор длительности
   function updateSleepUI() {
+    const active = sleepMode !== '0';
+    if (sleepToggle) sleepToggle.checked = active;
     if (!sleepOptions) return;
+    // 10.4: кнопки времени видим только когда таймер включён.
+    sleepOptions.classList.toggle('hidden', !active);
     sleepOptions.querySelectorAll('button[data-sleep]').forEach(b => {
       const on = b.dataset.sleep === sleepMode;
       b.classList.toggle('active', on);
@@ -3945,6 +3982,7 @@
   function setSleepTimer(value) {
     clearSleepTimer();
     sleepMode = value;
+    if (value !== '0') lastSleepMode = value;
     if (value === 'end') {
       sleepAtEnd = true;
       showToast('Таймер сна: пауза после этой серии');
@@ -3969,8 +4007,22 @@
   if (sleepOptions) {
     sleepOptions.addEventListener('click', e => {
       const btn = e.target.closest('button[data-sleep]');
-      if (btn) setSleepTimer(btn.dataset.sleep);
+      if (btn) { setSleepTimer(btn.dataset.sleep); saveSettings(); }
     });
+  }
+  // 10.4: тумблер «Таймер сна» — включает/выключает таймер; кнопки длительности
+  // появляются под ним (см. updateSleepUI) только когда он включён.
+  function setSleepEnabled(on) {
+    if (on) {
+      setSleepTimer(lastSleepMode);
+    } else {
+      clearSleepTimer();
+      updateSleepUI();
+      showToast('Таймер сна: выключен');
+    }
+  }
+  if (sleepToggle) {
+    sleepToggle.addEventListener('change', () => setSleepEnabled(sleepToggle.checked));
   }
 
   // ============================================================
@@ -4183,6 +4235,15 @@
       wakeOn = wakeToggle.checked;
       saveSettings();
       if (wakeOn) acquireWakeLock(); else releaseWakeLock();
+    });
+  }
+
+  // ----- 10.4: лёгкая вибрация (тумблер «Вибрация») ----------------------
+  if (vibrateToggle) {
+    vibrateToggle.addEventListener('change', () => {
+      vibroOn = vibrateToggle.checked;
+      saveSettings();
+      if (vibroOn) haptic(8);   // короткий отклик на включение
     });
   }
 
