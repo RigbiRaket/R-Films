@@ -1540,6 +1540,12 @@
               <input type="checkbox" id="autoNextToggle" checked>
               <span class="toggle-switch"></span>
             </label>
+            <!-- Шаг 10.1: не даём экрану гаснуть, пока идёт воспроизведение. -->
+            <label class="settings-toggle">
+              <span>Не гасить экран</span>
+              <input type="checkbox" id="wakeToggle" checked>
+              <span class="toggle-switch"></span>
+            </label>
             <!-- Шаг 9.2: таймер сна. Действует только в текущей сессии. -->
             <div class="settings-title settings-title-sub">Таймер сна</div>
             <div class="settings-options" id="sleepOptions">
@@ -1708,6 +1714,7 @@
   const ambientToggle    = $('ambientToggle');
   const fillToggle       = $('fillToggle');
   const sleepOptions     = $('sleepOptions');
+  const wakeToggle       = $('wakeToggle');
   const settingsGrid     = $('settingsGrid');
   const settingsStore    = $('settingsStore');
   const settingsBody     = $('settingsBody');
@@ -3529,6 +3536,7 @@
 
   const POS_TTL = 30 * 24 * 3600 * 1000;  // 4.4: позиция живёт 30 дней
   let autoNext = true;                    // 5.1: автопереход к следующей серии
+  let wakeOn = true;                      // 10.1: не гасить экран во время просмотра
 
   // 4.1: настройки (скорость, шаг, громкость, ambient).
   function saveSettings() {
@@ -3543,6 +3551,8 @@
       fill: fillToggle.checked,
       // Шаг 7.3: помним, свёрнуто ли поле ввода ссылки.
       inputCollapsed: manualForm.classList.contains('collapsed'),
+      // Шаг 10.1: «не гасить экран».
+      wake: wakeOn,
     });
   }
   function restoreSettings() {
@@ -3561,6 +3571,8 @@
     if (typeof s.autonext === 'boolean') { autoNext = s.autonext; autoNextToggle.checked = autoNext; }
     // Шаг 7.5: «Заполнить экран» (object-fit: cover).
     if (s.fill === true) { fillToggle.checked = true; playerContainer.classList.add('fill'); }
+    // Шаг 10.1: «не гасить экран» (по умолчанию включено).
+    if (typeof s.wake === 'boolean') { wakeOn = s.wake; wakeToggle.checked = wakeOn; }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
@@ -3991,6 +4003,44 @@
   pipBtn.addEventListener('click', togglePip);
   nativeVideo.addEventListener('enterpictureinpicture', () => { pipActive = true; updatePipButton(); });
   nativeVideo.addEventListener('leavepictureinpicture', () => { pipActive = false; updatePipButton(); });
+
+  // ----- 6.5 Screen Wake Lock: экран не гаснет во время просмотра -------
+  // Шаг 10.1: пока видео играет, просим систему не гасить экран; на паузе,
+  // по окончании и в фоне — отпускаем. Если API нет (старые WebView) —
+  // молча выходим, плеер работает как раньше.
+  const wakeLockOk = (() => {
+    try { return 'wakeLock' in navigator && !!navigator.wakeLock; } catch (e) { return false; }
+  })();
+  let wakeSentinel = null;
+  async function acquireWakeLock() {
+    if (!wakeLockOk || !wakeOn) return;
+    if (nativeVideo.paused || nativeVideo.ended) return;
+    if (nativeVideo.classList.contains('hidden')) return;   // iframe-режим
+    if (document.hidden) return;                            // в фоне система и так уснёт
+    if (wakeSentinel && !wakeSentinel.released) return;     // уже держим
+    try {
+      wakeSentinel = await navigator.wakeLock.request('screen');
+      wakeSentinel.addEventListener('release', () => { wakeSentinel = null; });
+    } catch (e) { wakeSentinel = null; }
+  }
+  function releaseWakeLock() {
+    const s = wakeSentinel;
+    wakeSentinel = null;
+    if (s) { try { s.release(); } catch (e) {} }
+  }
+  nativeVideo.addEventListener('play', acquireWakeLock);
+  nativeVideo.addEventListener('pause', releaseWakeLock);
+  nativeVideo.addEventListener('ended', releaseWakeLock);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseWakeLock(); else acquireWakeLock();
+  });
+  if (wakeToggle) {
+    wakeToggle.addEventListener('change', () => {
+      wakeOn = wakeToggle.checked;
+      saveSettings();
+      if (wakeOn) acquireWakeLock(); else releaseWakeLock();
+    });
+  }
 
   // ============================================================
   //  Init
