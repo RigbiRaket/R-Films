@@ -1232,6 +1232,8 @@
     #timeTotal { display: none; }
     .spacer { min-width: 0; }
     .player-container.has-episodes .skip-btn { display: none; }
+    /* Шаг 6.2: в сериале нижняя строка и без PiP набита — кнопку отдаём фильмам. */
+    .player-container.has-episodes #pipBtn { display: none; }
     .volume-slider { display: none; }
     #theaterBtn { display: none; }
     /* Шаг 7.1: панель настроек не воюет с нижней строкой — держим сверху
@@ -1272,6 +1274,15 @@
     .ctrl-btn:hover { background: transparent; color: #fff; }
     .settings-options button:hover { background: rgba(255,255,255,0.06); }
     .lock-btn:hover, .dl-btn:hover { background: var(--panel); color: #fff; }
+  }
+  /* Шаг 6.4: системное «меньше движения» — гасим анимации и переходы. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 </style>
 </head>
@@ -1456,6 +1467,13 @@
               <path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
               <path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
               <path d="M3 16h3a2 2 0 0 1 2 2v3"/>
+            </svg>
+          </button>
+          <!-- Шаг 6.2: картинка-в-картинке (PiP). -->
+          <button class="ctrl-btn hidden" id="pipBtn" title="Картинка в картинке (I)" aria-label="Картинка в картинке" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <rect x="11.5" y="11.5" width="9" height="6.5" rx="1.2" fill="currentColor" stroke="none"/>
             </svg>
           </button>
           <!-- Шаг 7.4: режим «Театр/Фокус» — прячем всё, кроме видео. -->
@@ -1648,6 +1666,7 @@
   const settingsBtn      = $('settingsBtn');
   const fullscreenBtn    = $('fullscreenBtn');
   const theaterBtn       = $('theaterBtn');
+  const pipBtn           = $('pipBtn');
   const iconFs           = fullscreenBtn.querySelector('.icon-fs');
   const iconFsExit       = fullscreenBtn.querySelector('.icon-fs-exit');
   const settingsPanel    = $('settingsPanel');
@@ -1715,6 +1734,11 @@
   let ambientCanvas = document.createElement('canvas');
   let ambientCtx = ambientCanvas.getContext('2d', { willReadFrequently: true });
   let ambientLoop = null;
+  // Шаг 6.3: ambient обновляем ~10 раз в секунду и не «долбим» холст при отказах.
+  let lastAmbientAt = 0;
+  let ambientErrorStreak = 0;
+  // Шаг 6.4: системная настройка «меньше движения».
+  let reducedMotion = false;
 
   // ============================================================
   //  Helpers
@@ -1906,16 +1930,32 @@
   // ============================================================
   //  Ambient Mode
   // ============================================================
+  // Шаг 6.3: остановить подсветку (в т.ч. в фоне) — единая функция вместо
+  // разбросанных cancelAnimationFrame.
+  function stopAmbient() {
+    if (ambientLoop) { cancelAnimationFrame(ambientLoop); ambientLoop = null; }
+    playerOuter.classList.remove('ambient');
+  }
+  // ~10 fps: цвет кадра меняется медленно, 60 обновлений в секунду ни к чему.
+  const AMBIENT_INTERVAL = 100;
   function startAmbient() {
     if (ambientLoop) cancelAnimationFrame(ambientLoop);
     ambientCanvas.width = 16;
     ambientCanvas.height = 16;
+    lastAmbientAt = 0;
+    ambientErrorStreak = 0;
     const tick = () => {
-      if (!ambientToggle.checked || nativeVideo.paused || nativeVideo.ended || nativeVideo.classList.contains('hidden') || playerContainer.classList.contains('embed-mode')) {
+      if (!ambientToggle.checked || nativeVideo.paused || nativeVideo.ended || nativeVideo.classList.contains('hidden') || playerContainer.classList.contains('embed-mode') || document.hidden) {
         playerOuter.classList.remove('ambient');
         ambientLoop = requestAnimationFrame(tick);
         return;
       }
+      const now = performance.now();
+      if (now - lastAmbientAt < AMBIENT_INTERVAL) {
+        ambientLoop = requestAnimationFrame(tick);
+        return;
+      }
+      lastAmbientAt = now;
       try {
         ambientCtx.drawImage(nativeVideo, 0, 0, 16, 16);
         const data = ambientCtx.getImageData(0, 0, 16, 16).data;
@@ -1927,8 +1967,12 @@
         r = Math.round(r / px); g = Math.round(g / px); b = Math.round(b / px);
         playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.4)`);
         playerOuter.classList.add('ambient');
+        ambientErrorStreak = 0;
       } catch (e) {
+        // Кадр недоступен (CORS/secure). После нескольких отказов подряд замолкаем,
+        // чтобы не жечь CPU впустую.
         playerOuter.classList.remove('ambient');
+        if (++ambientErrorStreak >= 5) { stopAmbient(); return; }
       }
       ambientLoop = requestAnimationFrame(tick);
     };
@@ -1936,10 +1980,7 @@
   }
   ambientToggle.addEventListener('change', () => {
     if (ambientToggle.checked) startAmbient();
-    else {
-      if (ambientLoop) cancelAnimationFrame(ambientLoop);
-      playerOuter.classList.remove('ambient');
-    }
+    else stopAmbient();
     saveSettings();
   });
 
@@ -2729,6 +2770,7 @@
       navSeason = curSeason;   // 8.x-fix: меню открывается на текущем сезоне
       renderEpisodeNav();
       updateTitleForEpisode(); // 8.x-fix: название серии в шапке после загрузки списка
+      syncMediaSessionHandlers();  // Шаг 6.1: включить «пред./след. серию» на локскрине
       // 8.x-fix: если список ждали для прыжка на последнюю серию — прыгаем.
       if (pendingEpisodeJump) {
         const j = pendingEpisodeJump;
@@ -3092,6 +3134,7 @@
       playerContainer.classList.remove('controls-visible', 'paused', 'locked');
       if (settingsOpen) toggleSettings(false);
     }
+    updatePipButton();   // Шаг 6.2: PiP доступен только для своего <video>
   }
 
   function stopPlayback() {
@@ -3113,6 +3156,11 @@
     audioSection.classList.add('hidden');
     playerContainer.classList.remove('embed-mode');
     playerOuter.style.aspectRatio = '';  // Шаг 7.5: до метаданных — снова 16:9
+    // Шаг 6.1: чистим системные метаданные; окно PiP (6.2) закроется само без src.
+    setMediaSessionState('none');
+    if (mediaSessionOk) { try { navigator.mediaSession.metadata = null; } catch (e) {} }
+    pipActive = false;
+    updatePipButton();
   }
 
   function loadFromUrl(rawUrl) {
@@ -3290,6 +3338,7 @@
       case 'KeyM': e.preventDefault(); muteBtn.click(); break;
       case 'KeyF': e.preventDefault(); toggleFullscreen(); break;
       case 'KeyT': e.preventDefault(); toggleTheater(); break;    // Шаг 7.4
+      case 'KeyI': e.preventDefault(); togglePip(); break;       // Шаг 6.2
       case 'KeyN': e.preventDefault(); stepEpisode(1); break;   // Шаг 5.2
       case 'KeyP': e.preventDefault(); stepEpisode(-1); break;  // Шаг 5.2
       case 'KeyJ': e.preventDefault(); skipBy(-10); break;      // Шаг 5.3
@@ -3397,8 +3446,8 @@
     // Не полагаемся на событие `volumechange` — синхронизируем ползунок явно.
     volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
     updateVolumeIcon();
-    if (s.ambient === true) { ambientToggle.checked = true; startAmbient(); }
-    else if (s.ambient === false) { ambientToggle.checked = false; }
+    if (s.ambient === true) ambientToggle.checked = true;
+    else if (s.ambient === false) ambientToggle.checked = false;
     // Шаг 5.1: автопереход серий (по умолчанию включён).
     if (typeof s.autonext === 'boolean') { autoNext = s.autonext; autoNextToggle.checked = autoNext; }
     // Шаг 7.5: «Заполнить экран» (object-fit: cover).
@@ -3606,6 +3655,7 @@
     document.title = text + ' — R·Films';
     titleBar.textContent = text;
     titleBar.classList.remove('hidden');
+    updateMediaSessionMetadata(text);   // Шаг 6.1: то же название на локскрине/в шторке
   }
   // Шаг 5.4: при переключении серии внутри плеера обновляем шапку —
   // «Название — N сезон, M серия — Название серии».
@@ -3633,7 +3683,122 @@
     scheduleAutoNext();
   });
   window.addEventListener('pagehide', () => savePosition(true));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) savePosition(true); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      savePosition(true);
+      stopAmbient();   // Шаг 6.3: в фоне подсветка не нужна
+    } else if (ambientToggle.checked && !nativeVideo.paused &&
+               !nativeVideo.classList.contains('hidden') &&
+               !playerContainer.classList.contains('embed-mode')) {
+      startAmbient();  // вернулись на страницу — подсветка оживает
+    }
+  });
+
+  // ============================================================
+  //  Шаг 6: системная интеграция
+  //  (Media Session, Picture-in-Picture, ambient, «меньше движения»)
+  // ============================================================
+  // ----- 6.1 Media Session: метаданные и системные кнопки --------------
+  const mediaSessionOk = (() => { try { return 'mediaSession' in navigator; } catch (e) { return false; } })();
+  // Обложка: постера от бота нет — ставим логотип R·Films.
+  const MEDIA_ARTWORK = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">' +
+    '<rect width="96" height="96" rx="20" fill="#0f1018"/>' +
+    '<circle cx="48" cy="48" r="27" fill="none" stroke="#39ff14" stroke-width="7"/>' +
+    '<path d="M40 33v30l24-15z" fill="#39ff14"/></svg>');
+  function updateMediaSessionMetadata(text) {
+    if (!mediaSessionOk || !text) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: text,
+        artist: 'R·Films',
+        artwork: [{ src: MEDIA_ARTWORK, sizes: '96x96', type: 'image/svg+xml' }],
+      });
+    } catch (e) {}
+  }
+  function setMediaSessionState(state) {
+    if (!mediaSessionOk) return;
+    try { navigator.mediaSession.playbackState = state; } catch (e) {}
+  }
+  function updateMediaPositionState() {
+    if (!mediaSessionOk) return;
+    try {
+      const d = nativeVideo.duration, p = nativeVideo.currentTime, r = nativeVideo.playbackRate || 1;
+      if (!isFinite(d) || d <= 0 || !isFinite(p)) return;
+      navigator.mediaSession.setPositionState({
+        duration: d,
+        position: Math.min(Math.max(p, 0), d),
+        playbackRate: r > 0 ? r : 1,
+      });
+    } catch (e) {}
+  }
+  // «Пред./след. серия» — только когда есть список серий (у фильма их нет).
+  let msEpisodeHandlers = null;
+  function syncMediaSessionHandlers() {
+    if (!mediaSessionOk) return;
+    const hasEps = !!(episodesIndex && episodesIndex.seasons && episodesIndex.seasons.length);
+    if (hasEps === msEpisodeHandlers) return;
+    try {
+      navigator.mediaSession.setActionHandler('previoustrack', hasEps ? (() => stepEpisode(-1)) : null);
+      navigator.mediaSession.setActionHandler('nexttrack', hasEps ? (() => stepEpisode(1)) : null);
+      msEpisodeHandlers = hasEps;
+    } catch (e) {}
+  }
+  if (mediaSessionOk) {
+    const msSet = (action, handler) => { try { navigator.mediaSession.setActionHandler(action, handler); } catch (e) {} };
+    msSet('play', () => { nativeVideo.play().catch(() => {}); });
+    msSet('pause', () => nativeVideo.pause());
+    msSet('stop', () => { nativeVideo.pause(); });
+    msSet('seekbackward', d => seekToTime(nativeVideo.currentTime - ((d && d.seekOffset) || currentStep)));
+    msSet('seekforward', d => seekToTime(nativeVideo.currentTime + ((d && d.seekOffset) || currentStep)));
+    msSet('seekto', d => {
+      if (!d) return;
+      const t = d.seekTime || 0;
+      if (d.fastSeek && typeof nativeVideo.fastSeek === 'function') nativeVideo.fastSeek(t);
+      else seekToTime(t);
+    });
+    syncMediaSessionHandlers();
+    // Источник перезагружается через stopPlayback (он чистит метаданные) — поэтому
+    // возвращаем их, как только появились метаданные/стартовало воспроизведение.
+    const refreshMediaSessionMetadata = () => {
+      const t = titleBar.textContent;
+      if (t) updateMediaSessionMetadata(t);
+    };
+    nativeVideo.addEventListener('loadedmetadata', refreshMediaSessionMetadata);
+    nativeVideo.addEventListener('play', () => { refreshMediaSessionMetadata(); setMediaSessionState('playing'); updateMediaPositionState(); });
+    nativeVideo.addEventListener('pause', () => setMediaSessionState('paused'));
+    nativeVideo.addEventListener('ended', () => setMediaSessionState('none'));
+    nativeVideo.addEventListener('timeupdate', updateMediaPositionState);
+    nativeVideo.addEventListener('durationchange', updateMediaPositionState);
+  }
+
+  // ----- 6.2 Picture-in-Picture -----------------------------------------
+  let pipActive = false;
+  const pipSupported = () => {
+    try {
+      return !!(document.pictureInPictureEnabled &&
+                typeof nativeVideo.requestPictureInPicture === 'function');
+    } catch (e) { return false; }
+  };
+  function updatePipButton() {
+    const ok = pipSupported() && !playerContainer.classList.contains('embed-mode') &&
+               !nativeVideo.classList.contains('hidden');
+    pipBtn.classList.toggle('hidden', !ok);
+    pipBtn.classList.toggle('active', pipActive);
+    pipBtn.setAttribute('aria-pressed', pipActive ? 'true' : 'false');
+  }
+  function togglePip() {
+    if (!pipSupported()) return;
+    if (document.pictureInPictureElement) {
+      Promise.resolve(document.exitPictureInPicture()).catch(() => {});
+      return;
+    }
+    Promise.resolve(nativeVideo.requestPictureInPicture())
+      .catch(() => showToast('Картинка в картинке недоступна', { error: true }));
+  }
+  pipBtn.addEventListener('click', togglePip);
+  nativeVideo.addEventListener('enterpictureinpicture', () => { pipActive = true; updatePipButton(); });
+  nativeVideo.addEventListener('leavepictureinpicture', () => { pipActive = false; updatePipButton(); });
 
   // ============================================================
   //  Init
@@ -3641,9 +3806,19 @@
   (function init() {
     setStep(10);
     updateVolumeIcon();
+    // Шаг 6.4: уважаем системную настройку «меньше движения».
+    try {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      reducedMotion = mq.matches;
+      const onMotionPref = ev => { reducedMotion = ev.matches; if (reducedMotion) stopAmbient(); };
+      if (mq.addEventListener) mq.addEventListener('change', onMotionPref);
+      else if (mq.addListener) mq.addListener(onMotionPref);
+    } catch (e) {}
     // Шаг 4: восстанавливаем настройки и подчищаем устаревшие позиции.
     restoreSettings();
     // 8.x-fix: ambient-подсветка включена по умолчанию (пока пользователь не выключил).
+    // Шаг 6.4: при «меньше движения» сами её не включаем.
+    if (reducedMotion) ambientToggle.checked = false;
     if (ambientToggle.checked) startAmbient();
     store.prune(POS_TTL);
     // Шаг 7.3: поле ввода ссылки — на узком экране свёрнуто (если выбор не сохранён).
