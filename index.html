@@ -930,17 +930,28 @@
     .brand-icon { width: 24px; height: 24px; }
     .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 10px; }
     .controls { padding: 0 10px 10px; }
+    /* Шаг 7.1: строка управления переносится, а не вылезает за край. */
+    .ctrl-row { flex-wrap: wrap; row-gap: 6px; }
     .ctrl-btn { width: 36px; height: 36px; }
     .play-btn { width: 40px; height: 40px; }
     .time-display { font-size: 11px; padding: 0 4px; }
-    .volume-slider { width: 50px; }
-    .settings-panel { right: 10px; bottom: 60px; width: calc(100% - 20px); }
+    .volume-slider { width: 44px; }
+    /* Шаг 7.1: панель настроек не воюет с нижней строкой — держим сверху
+       (и чистим кнопку «Скачать» сверху справа). */
+    .settings-panel {
+      left: auto; right: 10px; top: 64px; bottom: auto;
+      width: calc(100% - 20px);
+      max-height: calc(100% - 84px);
+      overflow-y: auto;
+    }
+    /* Шаг 7.1: плашка «Продолжить» — сверху слева, вне нижней строки. */
+    .resume-pill { top: 64px; bottom: auto; left: 10px; }
     .bottom-input { padding: 0 10px; }
   }
 
-  /* ====== Тач-устройства (Шаг 2) ======
-     На тач нет hover. Крупные кнопки нижней панели оставлены на Шаг 7.1
-     (вместе с перекомпоновкой строки, чтобы не переполнить её на узком экране). */
+  /* ====== Тач-устройства (Шаг 2 + 7.1) ======
+     На тач нет hover. Крупные кнопки нижней панели (Шаг 7.1): строка
+     управления переносится, поэтому 44px не переполняют узкий экран. */
   @media (hover: none), (pointer: coarse) {
     /* Шаг 2.1: кнопка блокировки видна без hover — иначе на тач её не найти. */
     .lock-btn { opacity: 1; }
@@ -948,6 +959,12 @@
     .lock-btn, .dl-btn { width: 44px; height: 44px; }
     .lock-btn svg { width: 20px; height: 20px; }
     .settings-options button { padding: 9px 14px; }
+    /* Шаг 7.1: тап-зоны нижней панели ≥44px. */
+    .ctrl-row .ctrl-btn { width: 44px; height: 44px; }
+    .ctrl-row .play-btn { width: 48px; height: 48px; }
+    .ctrl-row .ctrl-btn.ep-nav-btn { min-width: 44px; padding: 0 8px; }
+    .volume-slider { height: 6px; }
+    .volume-slider::-webkit-slider-thumb { width: 16px; height: 16px; }
   }
   @media (hover: none) {
     /* Шаг 2.4: гасим «залипающий» hover после тапа. */
