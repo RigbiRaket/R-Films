@@ -193,6 +193,49 @@
     filter: drop-shadow(0 0 8px var(--accent-dim));
   }
 
+  /* Шаг 7.2: шапка (бренд + заголовок) собрана в один блок — на мобильном
+     он «липкий» и компактный, чтобы не съедать высоту под видео. */
+  .topbar {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  /* Шаг 7.9: бейдж сборки плеера — для поддержки, видно номер версии. */
+  .ver-badge {
+    position: absolute;
+    top: 4px;
+    left: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    opacity: 0.55;
+    user-select: none;
+    pointer-events: none;
+  }
+  /* Шаг 7.10: домен-источник потока в шапке. */
+  .source-chip {
+    position: absolute;
+    top: 4px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 45%;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    user-select: none;
+  }
+  .source-chip svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .source-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   /* Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт его в ссылку). */
   .title-bar {
     width: 100%;
@@ -238,6 +281,14 @@
     background: #000;
   }
   .player-container video { object-fit: contain; }
+  /* Шаг 7.5: «Заполнить» — видео растягивается на весь кадр (cover). */
+  .player-container.fill video { object-fit: cover; }
+
+  /* Шаг 7.4: режим «Театр/Фокус» — только видео, служебные блоки скрыты. */
+  body.theater .topbar,
+  body.theater .bottom-input { display: none !important; }
+  body.theater .page { padding: 0; }
+  body.theater .player-outer { max-height: none; }
 
   /* Скрываем весь кастомный UI в embed-режиме */
   .player-container.embed-mode .controls,
@@ -643,6 +694,8 @@
   }
   .ctrl-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
   .ctrl-btn:active { background: rgba(255,255,255,0.2); }
+  /* Шаг 7.4: активный режим «Театр/Фокус». */
+  .ctrl-btn.active { color: var(--accent); background: rgba(57, 255, 20, 0.12); }
   .ctrl-btn svg { width: 24px; height: 24px; }
   .play-btn { width: 46px; height: 46px; }
   .play-btn svg { width: 28px; height: 28px; }
@@ -884,6 +937,26 @@
   }
   .copy-input-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
   .copy-input-btn svg { width: 20px; height: 20px; }
+  /* Шаг 7.3: поле ввода ссылки — утилита, сворачивается в иконку «🔗». */
+  .input-toggle-btn {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .input-toggle-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
+  .input-toggle-btn svg { width: 20px; height: 20px; }
+  .bottom-input.collapsed { width: auto; }
+  .bottom-input.collapsed input,
+  .bottom-input.collapsed .copy-input-btn,
+  .bottom-input.collapsed .play-input-btn { display: none; }
   .play-input-btn {
     background: var(--accent);
     border: none;
@@ -926,9 +999,20 @@
 
   /* Mobile */
   @media (max-width: 760px) {
-    .brand { font-size: 20px; padding: 12px 0; }
-    .brand-icon { width: 24px; height: 24px; }
-    .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 10px; }
+    /* Шаг 7.2: шапка «липкая» и компактная — не съедает высоту под видео. */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      background: rgba(15, 16, 24, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .brand { font-size: 18px; padding: 8px 0 6px; gap: 8px; }
+    .brand-icon { width: 22px; height: 22px; }
+    .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 8px; }
+    .ver-badge { top: 3px; left: 8px; font-size: 9px; }
+    .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: 50%; }
     .controls { padding: 0 10px 10px; }
     /* Шаг 7.1: строка управления переносится, а не вылезает за край. */
     .ctrl-row { flex-wrap: wrap; row-gap: 6px; }
@@ -976,15 +1060,27 @@
 </head>
 <body>
 <div class="page">
-  <div class="brand">
-    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-      <path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/>
-    </svg>
-    <span>R·Films</span>
-  </div>
+  <header class="topbar" id="topbar">
+    <span class="ver-badge" id="verBadge" title="Сборка плеера"></span>
+    <div class="brand">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+        <path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>R·Films</span>
+    </div>
 
-  <div class="title-bar hidden" id="titleBar"></div>
+    <div class="source-chip hidden" id="sourceChip" title="Источник потока">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M2 12h20"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      <span id="sourceChipText"></span>
+    </div>
+
+    <div class="title-bar hidden" id="titleBar"></div>
+  </header>
 
   <div class="player-outer" id="playerOuter">
     <div class="player-container" id="playerContainer">
@@ -1141,6 +1237,13 @@
               <path d="M3 16h3a2 2 0 0 1 2 2v3"/>
             </svg>
           </button>
+          <!-- Шаг 7.4: режим «Театр/Фокус» — прячем всё, кроме видео. -->
+          <button class="ctrl-btn" id="theaterBtn" title="Театр/Фокус (T)" aria-label="Режим театра">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2" stroke-dasharray="3 3"/>
+              <rect x="6" y="7" width="12" height="10" rx="1"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -1212,6 +1315,12 @@
   </div>
 
   <form class="bottom-input" id="manualForm" autocomplete="off">
+    <button type="button" class="input-toggle-btn" id="inputToggleBtn" aria-label="Показать или скрыть поле ввода ссылки" aria-expanded="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    </button>
     <button type="button" class="copy-input-btn hidden" id="copyInputBtn" title="Скопировать ссылку">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -1249,6 +1358,10 @@
   const lockBtn          = $('lockBtn');
   const downloadBtn      = $('downloadBtn');
   const titleBar         = $('titleBar');
+  const topbar           = $('topbar');
+  const verBadge         = $('verBadge');
+  const sourceChip       = $('sourceChip');
+  const sourceChipText   = $('sourceChipText');
   const bigPlay          = $('bigPlay');
   const errorOverlay     = $('errorOverlay');
   const errorTitle       = $('errorTitle');
@@ -1287,6 +1400,7 @@
   const volumeTooltip    = $('volumeTooltip');
   const settingsBtn      = $('settingsBtn');
   const fullscreenBtn    = $('fullscreenBtn');
+  const theaterBtn       = $('theaterBtn');
   const iconFs           = fullscreenBtn.querySelector('.icon-fs');
   const iconFsExit       = fullscreenBtn.querySelector('.icon-fs-exit');
   const settingsPanel    = $('settingsPanel');
@@ -1307,6 +1421,7 @@
   const copyLinkBtn      = $('copyLinkBtn');
   const copyLinkBtnText  = copyLinkBtn.querySelector('span');
   const manualForm       = $('manualForm');
+  const inputToggleBtn   = $('inputToggleBtn');
   const manualUrlInput   = $('manualUrl');
   const copyInputBtn     = $('copyInputBtn');
   const playInputBtn     = $('playInputBtn');
@@ -1685,6 +1800,51 @@
   document.addEventListener('webkitfullscreenchange', syncFsIcon);
   nativeVideo.addEventListener('webkitbeginfullscreen', () => setFsIcon(true));
   nativeVideo.addEventListener('webkitendfullscreen', () => setFsIcon(false));
+
+  // ============================================================
+  //  Шаг 7.2–7.4, 7.9–7.10: шапка, театр, поле ввода, бейдж, источник
+  // ============================================================
+  // 7.9: номер сборки плеера (синхронизировать с bot/app.py `__version__`).
+  const PLAYER_UI_VERSION = '2.37.99';
+  verBadge.textContent = 'v' + PLAYER_UI_VERSION;
+  verBadge.title = 'R·Films player v' + PLAYER_UI_VERSION;
+
+  // 7.10: домен источника потока в шапке (понятно, откуда идёт видео).
+  function setSourceChip(url) {
+    let host = '';
+    try { host = new URL(normalizeUrl(url)).hostname.replace(/^www\./, ''); } catch (e) {}
+    if (!host) { sourceChip.classList.add('hidden'); return; }
+    sourceChipText.textContent = host;
+    sourceChip.classList.remove('hidden');
+  }
+
+  // 7.4: режим «Театр/Фокус» — прячем всё, кроме видео (удобно в WebView).
+  let theaterMode = false;
+  function toggleTheater(force) {
+    theaterMode = typeof force === 'boolean' ? force : !theaterMode;
+    document.body.classList.toggle('theater', theaterMode);
+    theaterBtn.classList.toggle('active', theaterMode);
+    if (theaterMode) showControls();
+  }
+  theaterBtn.addEventListener('click', () => toggleTheater());
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Escape' && theaterMode && !settingsOpen &&
+        !document.fullscreenElement && !document.webkitFullscreenElement) {
+      toggleTheater(false);
+    }
+  });
+
+  // 7.3: поле ввода ссылки — сворачиваемая утилита (по умолчанию свёрнута на телефоне).
+  function setInputCollapsed(on) {
+    manualForm.classList.toggle('collapsed', on);
+    inputToggleBtn.setAttribute('aria-expanded', String(!on));
+    inputToggleBtn.title = on ? 'Показать поле ссылки' : 'Свернуть поле ссылки';
+  }
+  inputToggleBtn.addEventListener('click', () => {
+    const on = !manualForm.classList.contains('collapsed');
+    setInputCollapsed(on);
+    saveSettings();
+  });
 
   // ============================================================
   //  Speed & Step
@@ -2383,6 +2543,7 @@
     try { parsed = new URL(url); } catch { return showToast('Некорректная ссылка', { error: true }); }
     currentUrl = url;
     fallbackUsed = false;  // новая ссылка — фолбэк снова доступен (§13)
+    setSourceChip(url);    // Шаг 7.10: домен источника в шапке
     manualUrlInput.value = rawUrl;
     copyInputBtn.classList.remove('hidden');
     
@@ -2549,6 +2710,7 @@
         break;
       case 'KeyM': e.preventDefault(); muteBtn.click(); break;
       case 'KeyF': e.preventDefault(); toggleFullscreen(); break;
+      case 'KeyT': e.preventDefault(); toggleTheater(); break;    // Шаг 7.4
       case 'KeyN': e.preventDefault(); stepEpisode(1); break;   // Шаг 5.2
       case 'KeyP': e.preventDefault(); stepEpisode(-1); break;  // Шаг 5.2
       case 'KeyJ': e.preventDefault(); skipBy(-10); break;      // Шаг 5.3
@@ -2640,6 +2802,8 @@
       muted: nativeVideo.muted,
       ambient: ambientToggle.checked,
       autonext: autoNext,
+      // Шаг 7.3: помним, свёрнуто ли поле ввода ссылки.
+      inputCollapsed: manualForm.classList.contains('collapsed'),
     });
   }
   function restoreSettings() {
@@ -2810,6 +2974,10 @@
     // Шаг 4: восстанавливаем настройки и подчищаем устаревшие позиции.
     restoreSettings();
     store.prune(POS_TTL);
+    // Шаг 7.3: поле ввода ссылки — на узком экране свёрнуто (если выбор не сохранён).
+    const savedInputCollapsed = (store.read('settings', null) || {}).inputCollapsed;
+    if (typeof savedInputCollapsed === 'boolean') setInputCollapsed(savedInputCollapsed);
+    else if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) setInputCollapsed(true);
     
     const params = new URLSearchParams(location.search);
     const embed = params.get('embed');
