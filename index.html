@@ -1036,6 +1036,16 @@
         <button class="resume-close" id="resumeCloseBtn" title="Начать с начала" aria-label="Начать с начала">✕</button>
       </div>
 
+      <div class="error-overlay hidden" id="nextOverlay" role="dialog" aria-label="Следующая серия">
+        <div class="error-box">
+          <div class="error-title" id="nextTitle">Следующая серия</div>
+          <div class="error-actions">
+            <button class="error-btn primary" id="nextGoBtn">⏭ Смотреть сейчас</button>
+            <button class="error-btn" id="nextCancelBtn">Отмена</button>
+          </div>
+        </div>
+      </div>
+
       <div class="controls" id="controls">
         <div class="progress-wrapper" id="progressWrapper">
           <div class="progress-bg">
@@ -1165,6 +1175,13 @@
           </label>
         </div>
         <div class="settings-section">
+          <label class="settings-toggle">
+            <span>Автопереход серий</span>
+            <input type="checkbox" id="autoNextToggle" checked>
+            <span class="toggle-switch"></span>
+          </label>
+        </div>
+        <div class="settings-section">
           <button class="copy-link-btn" id="copyLinkBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -1225,6 +1242,11 @@
   const resumePill       = $('resumePill');
   const resumeBtn        = $('resumeBtn');
   const resumeCloseBtn   = $('resumeCloseBtn');
+  const nextOverlay      = $('nextOverlay');
+  const nextTitle        = $('nextTitle');
+  const nextGoBtn        = $('nextGoBtn');
+  const nextCancelBtn    = $('nextCancelBtn');
+  const autoNextToggle   = $('autoNextToggle');
   const controlsEl       = $('controls');
   const progressWrapper  = $('progressWrapper');
   const progressBuffer   = $('progressBuffer');
@@ -2326,6 +2348,7 @@
     hideResume(false);
     pendingResumeTime = null;
     resumeOfferedFor = -1;
+    cancelAutoNext();
     if (mp4Guard !== null) { clearTimeout(mp4Guard); mp4Guard = null; }
     if (currentHls) { try { currentHls.destroy(); } catch {} currentHls = null; }
     if (currentBlobUrl) { try { URL.revokeObjectURL(currentBlobUrl); } catch {} currentBlobUrl = null; }
@@ -2575,6 +2598,7 @@
   })();
 
   const POS_TTL = 30 * 24 * 3600 * 1000;  // 4.4: позиция живёт 30 дней
+  let autoNext = true;                    // 5.1: автопереход к следующей серии
 
   // 4.1: настройки (скорость, шаг, громкость, ambient).
   function saveSettings() {
@@ -2584,6 +2608,7 @@
       volume: nativeVideo.volume,
       muted: nativeVideo.muted,
       ambient: ambientToggle.checked,
+      autonext: autoNext,
     });
   }
   function restoreSettings() {
@@ -2597,6 +2622,8 @@
     volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
     updateVolumeIcon();
     if (s.ambient === true) { ambientToggle.checked = true; startAmbient(); }
+    // Шаг 5.1: автопереход серий (по умолчанию включён).
+    if (typeof s.autonext === 'boolean') { autoNext = s.autonext; autoNextToggle.checked = autoNext; }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
@@ -2680,9 +2707,44 @@
   nativeVideo.addEventListener('loadedmetadata', () => {
     try { nativeVideo.playbackRate = userSpeed; } catch {}
   });
+
+  // ============================================================
+  //  Шаг 5.1: автопереход к следующей серии
+  // ============================================================
+  const NEXT_SECONDS = 5;
+  let nextTimer = null;
+  let nextCountdown = 0;
+  function renderNextCountdown() {
+    nextTitle.textContent = 'Следующая серия через ' + nextCountdown + '…';
+  }
+  function cancelAutoNext() {
+    if (nextTimer !== null) { clearInterval(nextTimer); nextTimer = null; }
+    nextCountdown = 0;
+    nextOverlay.classList.add('hidden');
+  }
+  function scheduleAutoNext() {
+    if (!autoNext || !hasNextEpisode()) return;
+    cancelAutoNext();
+    nextCountdown = NEXT_SECONDS;
+    renderNextCountdown();
+    nextOverlay.classList.remove('hidden');
+    nextTimer = setInterval(() => {
+      nextCountdown--;
+      if (nextCountdown <= 0) { cancelAutoNext(); stepEpisode(1); }
+      else renderNextCountdown();
+    }, 1000);
+  }
+  nextGoBtn.addEventListener('click', () => { cancelAutoNext(); stepEpisode(1); });
+  nextCancelBtn.addEventListener('click', cancelAutoNext);
+  autoNextToggle.addEventListener('change', () => { autoNext = autoNextToggle.checked; saveSettings(); });
   nativeVideo.addEventListener('timeupdate', () => savePosition(false));
   nativeVideo.addEventListener('pause', () => savePosition(true));
-  nativeVideo.addEventListener('ended', () => { const k = posKey(); if (k) store.remove(k); });
+  nativeVideo.addEventListener('ended', () => {
+    const k = posKey();
+    if (k) store.remove(k);
+    // Шаг 5.1: досмотрено — предлагаем следующую серию.
+    scheduleAutoNext();
+  });
   window.addEventListener('pagehide', () => savePosition(true));
   document.addEventListener('visibilitychange', () => { if (document.hidden) savePosition(true); });
 
