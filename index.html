@@ -333,6 +333,7 @@
   .player-container.embed-mode .big-play,
   .player-container.embed-mode .error-overlay,
   .player-container.embed-mode .resume-pill,
+  .player-container.embed-mode .bot-pill,
   .player-container.embed-mode .settings-panel,
   .player-container.embed-mode .speed-drag-indicator,
   .player-container.embed-mode .seek-flash,
@@ -395,6 +396,7 @@
   .player-container.locked .seek-flash,
   .player-container.locked .seek-hud,
   .player-container.locked .resume-pill,
+  .player-container.locked .bot-pill,
   .player-container.locked .seek-preview {
     display: none !important;
   }
@@ -738,6 +740,50 @@
     cursor: pointer;
   }
   .resume-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+  /* ====== 9.7b: плашка «Сохранить в бот» ======
+     Отдельная строка над плашкой «Продолжить» (та же палитра), чтобы они
+     не перекрывались. Кнопки: сохранить / «Не показывать» / «×». */
+  .bot-pill {
+    position: absolute;
+    left: 16px;
+    bottom: 160px;
+    z-index: 40;
+    display: flex;
+    align-items: stretch;
+    max-width: calc(100% - 32px);
+    background: rgba(20, 22, 28, 0.95);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+    animation: pill-in 0.18s ease-out;
+  }
+  .bot-pill-go,
+  .bot-pill-off {
+    background: transparent;
+    border: none;
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .bot-pill-go {
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 14px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bot-pill-go:hover { background: rgba(255,255,255,0.1); }
+  .bot-pill-off {
+    color: rgba(255,255,255,0.65);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-left: 1px solid rgba(255,255,255,0.12);
+  }
+  .bot-pill-off:hover { background: rgba(255,255,255,0.1); color: #fff; }
   @keyframes pill-in {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
@@ -1471,6 +1517,10 @@
        10.8-fix: плашка по ширине контента (было растяжение `right:10px` —
        после крестика оставалась пустая полоса), но не шире доступного места. */
     .resume-pill { top: 16px; bottom: auto; left: 68px; right: auto; max-width: calc(100% - 78px); }
+    /* 9.7b: плашка «Сохранить в бот» — той же строкой, а если «Продолжить»
+       уже показана, уходим строкой ниже. */
+    .bot-pill { top: 16px; bottom: auto; left: 68px; right: auto; max-width: calc(100% - 78px); }
+    .resume-pill:not(.hidden) ~ .bot-pill { top: 64px; }
     .bottom-input { padding: 0 10px; }
   }
 
@@ -1707,6 +1757,13 @@
         <button class="resume-close" id="resumeCloseBtn" title="Начать с начала" aria-label="Начать с начала">✕</button>
       </div>
 
+      <!-- 9.7b: «Сохранить позицию в бот» — один тап, дальше deep link. -->
+      <div class="bot-pill hidden" id="botPill">
+        <button class="bot-pill-go" id="botPillSaveBtn">⏱ Сохранить в бот</button>
+        <button class="bot-pill-off" id="botPillOffBtn" title="Больше не предлагать">Не показывать</button>
+        <button class="resume-close" id="botPillCloseBtn" title="Скрыть" aria-label="Скрыть">✕</button>
+      </div>
+
       <div class="error-overlay hidden" id="nextOverlay" role="dialog" aria-label="Следующая серия">
         <div class="error-box">
           <div class="error-title" id="nextTitle">Следующая серия</div>
@@ -1758,6 +1815,16 @@
             <span id="timeTotal">0:00</span>
           </div>
           <div class="spacer"></div>
+          <!-- 9.7b: дискета — «Сохранить позицию в бот». Видна только для
+               ссылок из бота и только в режиме своего <video>; в правом трее
+               стоит первой, перед громкостью. -->
+          <button class="ctrl-btn hidden" id="saveBotBtn" title="Сохранить позицию в бот" aria-label="Сохранить позицию в бот">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+          </button>
           <div class="volume-wrap" id="volumeWrap">
             <button class="ctrl-btn" id="muteBtn" title="Звук (M)" aria-label="Выключить звук" aria-pressed="false">
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1882,6 +1949,14 @@
               <button data-sleep="60" aria-pressed="false">60 мин</button>
               <button data-sleep="end" aria-pressed="false">Конец серии</button>
             </div>
+            <!-- 9.7b: плашка «Сохранить в бот». Показывается только для ссылок
+                 из бота (в адресе есть `&k=`). Выключенная плашка не мешает
+                 кнопке-дискете в трее и тумблеру не мешает. -->
+            <label class="settings-toggle hidden" id="botPillToggleRow">
+              <span>Плашка «Сохранить в бот»</span>
+              <input type="checkbox" id="botPillToggle" checked>
+              <span class="toggle-switch"></span>
+            </label>
           </div>
           <div class="settings-section hidden" id="seasonSection">
             <div class="settings-title">Сезон</div>
@@ -2036,6 +2111,14 @@
   const resumePill       = $('resumePill');
   const resumeBtn        = $('resumeBtn');
   const resumeCloseBtn   = $('resumeCloseBtn');
+  // 9.7b: сохранение позиции в бот (кнопка-дискета + плашка).
+  const saveBotBtn       = $('saveBotBtn');
+  const botPill          = $('botPill');
+  const botPillSaveBtn   = $('botPillSaveBtn');
+  const botPillOffBtn    = $('botPillOffBtn');
+  const botPillCloseBtn  = $('botPillCloseBtn');
+  const botPillToggle    = $('botPillToggle');
+  const botPillToggleRow = $('botPillToggleRow');
   const gestureHint      = $('gestureHint');
   const gestureReplayBtn = $('gestureReplayBtn');
   const nextOverlay      = $('nextOverlay');
@@ -3654,6 +3737,7 @@
       if (settingsOpen) toggleSettings(false);
     }
     updatePipButton();   // Шаг 6.2: PiP доступен только для своего <video>
+    updateBotSaveButton();   // 9.7b: дискета только для своего <video>
   }
 
   function stopPlayback() {
@@ -3662,6 +3746,9 @@
     hideBigPlay();
     hideCenterStatus();
     hideResume(false);
+    hideBotPill();                    // 9.7b
+    clearTimeout(botPauseTimer);      // 9.7b
+    botPauseTimer = null;
     pendingResumeTime = null;
     pendingResumeEpisode = null;   // 8.x-fix: цель «продолжить» живёт только до запуска
     resumeOfferedFor = -1;
@@ -4212,6 +4299,22 @@
   let explicitStartTime = null;
   let pendingExplicitSeek = null;  // ждём метаданные, чтобы применить старт
 
+  // ============================================================
+  //  9.7b: позиция страницы → бот (deep link `/start pos_...`)
+  // ============================================================
+  // `&k=<kp_id>` кладёт бот в ссылку плеера; `&bot=` — необязательный override
+  // юзернейма (на случай смены). Без `k` (ручная ссылка, iframe) — не работаем.
+  const BOT_USERNAME = 'R_FilmsBot';
+  const BOT_PILL_THROTTLE = 2 * 60 * 1000;  // плашка не чаще раза в 2 мин
+  const BOT_PILL_MIN_DELTA = 60;            // позиция ушла ≥ 60 с от отправленной
+  let botKp = null;
+  let botUser = BOT_USERNAME;
+  let botPillOff = false;        // «Не показывать» (localStorage)
+  let botLastOffer = 0;          // когда плашку показывали в последний раз
+  let botDismissedKey = '';      // «×» — до конца этой серии
+  let botSent = null;            // {key, t, at} — последняя отправленная позиция
+  let botPauseTimer = null;      // пауза 2,5 с — триггер плашки
+
   // 8.x-fix: «продолжить» для сериала — помним последнюю просмотренную серию тайтла.
   function lastKey() { return contentId ? 'last.' + contentId : ''; }
   function readSeriesLast() {
@@ -4247,6 +4350,67 @@
     // 8.x-fix: запоминаем последнюю просмотренную серию сериала — по ней «продолжим».
     // Только для сериалов (у фильмов нет catalog-api), иначе плашка звала бы к чужой серии.
     if (contentId && catalogApi) store.write(lastKey(), { sea: curSeason || 1, epi: curEpisode || 1, t, d: dur, at: now });
+  }
+
+  // ---------- 9.7b: сохранение позиции в бот ----------
+  function botPillKey() {
+    const key = posKey();
+    if (key) return key;
+    if (botKp == null) return '';
+    return 'bot.' + botKp + '.' + (curSeason || 0) + '.' + (curEpisode || 0);
+  }
+  // Позиция для отправки: те же границы, что у `savePosition`, плюс отсев
+  // самого начала и последних 15 с. `null` — отправлять нечего.
+  function botPosEntry() {
+    if (botKp == null) return null;
+    if (nativeVideo.classList.contains('hidden')) return null;   // iframe-плеер
+    if (playerContainer.classList.contains('embed-mode')) return null;
+    const dur = nativeVideo.duration;
+    if (!isFinite(dur) || dur <= 0) return null;
+    const t = Math.floor(nativeVideo.currentTime);
+    const d = Math.floor(dur);
+    if (t < 10 || t >= d - 15) return null;
+    return { key: botPillKey(), t: t, d: d,
+             sea: curSeason || 0, epi: curEpisode || 0 };
+  }
+  function hideBotPill() { botPill.classList.add('hidden'); }
+  function setBotPillOff(off) {
+    botPillOff = !!off;
+    store.write('botpos.off', botPillOff);
+    botPillToggle.checked = !botPillOff;
+    if (botPillOff) hideBotPill();
+  }
+  // Кнопка-дискета в трее: только для ссылок из бота и только своё <video>.
+  function updateBotSaveButton() {
+    const on = botKp != null &&
+      !nativeVideo.classList.contains('hidden') &&
+      !playerContainer.classList.contains('embed-mode');
+    saveBotBtn.classList.toggle('hidden', !on);
+    if (!on) hideBotPill();
+  }
+  function maybeShowBotPill() {
+    if (botPillOff || botKp == null) return;
+    const pos = botPosEntry();
+    if (!pos) { hideBotPill(); return; }
+    if (pos.key === botDismissedKey) return;   // «×» до конца этой серии
+    const now = Date.now();
+    if (now - botLastOffer < BOT_PILL_THROTTLE) return;
+    if (botSent && botSent.key === pos.key &&
+        Math.abs(pos.t - botSent.t) < BOT_PILL_MIN_DELTA) return;
+    botLastOffer = now;
+    botPillSaveBtn.textContent = '⏱ Сохранить в бот · ' + formatTime(pos.t);
+    botPill.classList.remove('hidden');
+  }
+  // Один тап пользователя → deep link в бот (Telegram сам откроет `/start`).
+  function sendBotPosition() {
+    const pos = botPosEntry();
+    if (!pos) { showToast('Позиция ещё не набралась'); return; }
+    botSent = { key: pos.key, t: pos.t, at: Date.now() };
+    hideBotPill();
+    const payload = 'pos_' + botKp + '-' + pos.sea + '-' + pos.epi + '-' +
+                    pos.t + '-' + pos.d;
+    location.href = 'https://t.me/' + botUser + '?start=' +
+                    encodeURIComponent(payload);
   }
   // Плашку показываем один раз на запуск воспроизведения.
   let resumeOfferedFor = -1;
@@ -4339,6 +4503,36 @@
     }
   });
   resumeCloseBtn.addEventListener('click', () => hideResume(true));
+
+  // 9.7b: кнопка-дискета — сохранить сразу; плашка — сохранить/выключить/скрыть.
+  saveBotBtn.addEventListener('click', sendBotPosition);
+  botPillSaveBtn.addEventListener('click', sendBotPosition);
+  botPillOffBtn.addEventListener('click', () => setBotPillOff(true));
+  botPillCloseBtn.addEventListener('click', () => {
+    botDismissedKey = botPillKey();
+    hideBotPill();
+  });
+  botPillToggle.addEventListener('change', () => setBotPillOff(!botPillToggle.checked));
+  // Триггер 1: пауза 2,5 с (короткая пауза на перемотку плашку не зовёт).
+  nativeVideo.addEventListener('pause', () => {
+    if (nativeVideo.ended) return;
+    clearTimeout(botPauseTimer);
+    botPauseTimer = setTimeout(() => {
+      botPauseTimer = null;
+      maybeShowBotPill();
+    }, 2500);
+  });
+  nativeVideo.addEventListener('play', () => {
+    clearTimeout(botPauseTimer);
+    botPauseTimer = null;
+    hideBotPill();   // продолжили смотреть — плашка больше не нужна
+  });
+  // Триггер 2: возврат на вкладку (свернули приложение/переключились).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    setTimeout(() => { if (!document.hidden) maybeShowBotPill(); }, 400);
+  });
+
   nativeVideo.addEventListener('loadedmetadata', maybeOfferResume);
   // Шаг 9.1: длительность у части потоков приходит позже метаданных —
   // добираем стартовую позицию из `&t=` на `durationchange`.
@@ -4789,6 +4983,15 @@
     const capi = params.get('capi');
     if (cid) contentId = cid;
     if (capi) catalogApi = capi.replace(/\/+$/, '');
+    // 9.7b: `&k=<kp_id>` — к какому тайтлу привязать позицию для бота.
+    // Кладёт бот в ссылку плеера (`players/aggregator.py::stream`).
+    const botK = parseInt(params.get('k'), 10);
+    if (isFinite(botK) && botK > 0) botKp = botK;
+    const botParam = (params.get('bot') || '').trim();
+    if (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(botParam)) botUser = botParam;
+    botPillOff = store.read('botpos.off', false) === true;
+    botPillToggle.checked = !botPillOff;
+    if (botKp != null) botPillToggleRow.classList.remove('hidden');
     const sea = parseInt(params.get('sea'), 10);
     const epi = parseInt(params.get('epi'), 10);
     if (sea > 0) curSeason = sea;
