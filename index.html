@@ -266,12 +266,23 @@
     aspect-ratio: 16/9;
     max-height: calc(100vh - 200px);
     max-height: calc(100dvh - 200px);
-    transition: box-shadow 0.3s ease;
   }
   /* 10.5-fix: подсветка стала заметнее — больше разлёт и второй контур.
      10.6-fix: ещё больше разлёт/непрозрачность — на телефоне подсветку было
-     почти не видно. */
-  .player-outer.ambient {
+     почти не видно.
+     10.8-fix: свечение вынесено в отдельный слой `::after`. Так его можно
+     обрезать сверху (см. портретный медиазапрос), не задевая «шторку»
+     настроек — она `position: fixed`, и обрезка самого `.player-outer`
+     спрятала бы её целиком. */
+  .player-outer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: 0 0 0 0 transparent;
+    transition: box-shadow 0.3s ease;
+  }
+  .player-outer.ambient::after {
     box-shadow: 0 0 120px 30px var(--ambient-color, var(--accent-dim));
   }
   .player-container {
@@ -1347,9 +1358,19 @@
        по-прежнему ровное, но влезает в кадр. */
     .settings-body { height: min(200px, 46vh); }
     /* Шаг 7.1: плашка «Продолжить» — сверху слева, вне нижней строки. */
-    /* 10.7-fix: «Продолжить» — на верхней строке, наравне с замком. */
-    .resume-pill { top: 16px; bottom: auto; left: 68px; right: 10px; }
+    /* 10.7-fix: «Продолжить» — на верхней строке, наравне с замком.
+       10.8-fix: плашка по ширине контента (было растяжение `right:10px` —
+       после крестика оставалась пустая полоса), но не шире доступного места. */
+    .resume-pill { top: 16px; bottom: auto; left: 68px; right: auto; max-width: calc(100% - 78px); }
     .bottom-input { padding: 0 10px; }
+  }
+
+  /* 10.8-fix: в портрете на телефоне свечение не поднимается выше плеера.
+     Шапка «липкая» и тёмная (см. `max-width:760px`), поэтому раньше свечение
+     выползало над лого/названием, и они выглядели «внутри» подсветки. Теперь
+     свет идёт по бокам и снизу — как в альбоме, где всё было хорошо. */
+  @media (max-width: 760px) and (orientation: portrait) {
+    .player-outer.ambient::after { clip-path: inset(0 -160px -160px -160px); }
   }
 
   /* 10.5-fix: настройки на телефоне (и на низком экране) — «шторка» снизу во всю
