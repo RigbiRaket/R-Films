@@ -229,7 +229,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: 45%;
+    /* 10.7-fix: не залезаем на центрированный бренд «R·Films» (было 45%). */
+    max-width: 30%;
     padding: 3px 8px;
     border-radius: 999px;
     background: rgba(255,255,255,0.06);
@@ -361,10 +362,14 @@
      10.6-fix: замочек показывается вместе с интерфейсом (`controls-visible`) — это
      работает и на тач, и в полноэкранном режиме, где hover нет. Раньше на телефоне
      он висел всегда и в фуллскрине никуда не исчезал. */
-  .player-container:hover .lock-btn,
   .player-container.lock-visible .lock-btn,
   .player-container.controls-visible:not(.locked) .lock-btn {
     opacity: 1;
+  }
+  /* 10.7-fix: наведение мыши показывает замок только на устройствах с курсором.
+     На тач «залипший hover» держал замок на экране и в фуллскрине он не скрывался. */
+  @media (hover: hover) and (pointer: fine) {
+    .player-container:hover .lock-btn { opacity: 1; }
   }
   .lock-btn:hover { background: rgba(40, 42, 50, 0.9); }
   .lock-btn svg { width: 18px; height: 18px; }
@@ -450,7 +455,9 @@
   }
   .drag-hud-icon { width: 18px; height: 18px; }
 
-  /* 10.3: вспышка «±шаг» при двойном тапе по бокам. */
+  /* 10.3: вспышка «±шаг» при двойном тапе по бокам.
+     10.7-fix: без тёмного круга-подложки — только стрелка и цифра (как было до
+     него), с тенью для читаемости поверх светлого кадра. */
   .seek-flash {
     position: absolute;
     top: 50%;
@@ -462,12 +469,10 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(6px);
-    border-radius: 50%;
     color: #fff;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
     z-index: 26;
     pointer-events: none;
     opacity: 0;
@@ -662,6 +667,9 @@
     padding: 10px 14px;
     cursor: pointer;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .resume-go:hover { background: rgba(255,255,255,0.1); }
   .resume-close {
@@ -799,9 +807,12 @@
   .ctrl-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
   .ctrl-btn:active { background: rgba(255,255,255,0.2); }
   /* Шаг 7.4: активный режим «Театр/Фокус». 10.6-fix: заливку сделали сплошной
-     (как у `.settings-grid button.active`) — бледный 12%-й фон почти не читался,
-     и казалось, что кнопка «не загорается». */
-  .ctrl-btn.active { color: #000; background: var(--accent); }
+     (как у `.settings-grid button.active`) — бледный 12%-й фон почти не читался.
+     10.7-fix: добавлены `:hover`/`:active` — на тач «залипший hover» из
+     `@media (hover: none)` перебивал заливку, и кнопка «не загоралась». */
+  .ctrl-btn.active,
+  .ctrl-btn.active:hover,
+  .ctrl-btn.active:active { color: #000; background: var(--accent); }
   .ctrl-btn svg { width: 24px; height: 24px; }
   .play-btn { width: 46px; height: 46px; }
   .play-btn svg { width: 28px; height: 28px; }
@@ -1302,7 +1313,7 @@
     .brand-icon { width: 22px; height: 22px; }
     .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 8px; }
     .ver-badge { top: 3px; left: 8px; font-size: 9px; }
-    .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: 50%; }
+    .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
     .controls { padding: 0 10px 10px; }
     /* Шаг 7.1-fix: нижняя строка — ВСЕГДА одна линия (без переноса): правый
        кластер остаётся справа, а не уезжает вниз. На узком экране время — только
@@ -1336,7 +1347,8 @@
        по-прежнему ровное, но влезает в кадр. */
     .settings-body { height: min(200px, 46vh); }
     /* Шаг 7.1: плашка «Продолжить» — сверху слева, вне нижней строки. */
-    .resume-pill { top: 64px; bottom: auto; left: 10px; }
+    /* 10.7-fix: «Продолжить» — на верхней строке, наравне с замком. */
+    .resume-pill { top: 16px; bottom: auto; left: 68px; right: 10px; }
     .bottom-input { padding: 0 10px; }
   }
 
@@ -1353,13 +1365,14 @@
       width: auto;
       /* 10.6-fix: «шторка» одного размера — высота фиксирована, поэтому меню не
          прыгает вверх/вниз при переключении разделов. */
-      height: min(78dvh, 620px);
+      /* 10.7-fix: «шторка» компактная и одного размера — фиксируем высоту области
+         раздела, а панель тянется по контенту, чтобы не залезать на плеер. */
       max-height: calc(100dvh - 16px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-    .settings-body { flex: 1 1 auto; height: auto; min-height: 0; }
+    .settings-body { flex: 0 0 auto; height: min(210px, 36dvh); min-height: 0; }
   }
 
   /* 10.5-fix: альбомная ориентация телефона — шапка компактная (раньше названия
@@ -1371,14 +1384,14 @@
     .brand-icon { width: 20px; height: 20px; }
     .title-bar { font-size: 12px; margin-bottom: 6px; }
     .ver-badge { top: 2px; left: 8px; font-size: 9px; }
-    .source-chip { top: 2px; right: 8px; font-size: 10px; max-width: 45%; }
+    .source-chip { top: 2px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
     .player-outer {
       max-height: calc(100vh - 150px);
       max-height: calc(100dvh - 150px);
     }
     .bottom-input { margin-top: 10px; }
     .controls { padding: 0 12px 10px; }
-    .center-status { width: 64px; height: 64px; top: 30%; }
+    .center-status { width: 64px; height: 64px; top: 50%; }
     .center-status svg { width: 40px; height: 40px; }
   }
 
@@ -1692,12 +1705,7 @@
               <input type="checkbox" id="wakeToggle" checked>
               <span class="toggle-switch"></span>
             </label>
-            <!-- Шаг 10.4: лёгкая вибрация на тапе и перемотке. -->
-            <label class="settings-toggle">
-              <span>Вибрация</span>
-              <input type="checkbox" id="vibrateToggle" checked>
-              <span class="toggle-switch"></span>
-            </label>
+            <!-- 10.7: тумблер «Вибрация» убран (из перемотки вибрация тоже убрана). -->
             <!-- Шаг 9.2/10.4: таймер сна — тумблер; кнопки времени появляются
                  ниже только после включения. Живёт только в текущей сессии. -->
             <label class="settings-toggle">
@@ -1879,7 +1887,6 @@
   const sleepOptions     = $('sleepOptions');
   const sleepToggle      = $('sleepToggle');
   const wakeToggle       = $('wakeToggle');
-  const vibrateToggle    = $('vibrateToggle');
   const settingsGrid     = $('settingsGrid');
   const settingsStore    = $('settingsStore');
   const settingsBody     = $('settingsBody');
@@ -2185,15 +2192,21 @@
         }
         const px = data.length / 4;
         r = Math.round(r / px); g = Math.round(g / px); b = Math.round(b / px);
-        // 10.5-fix: на тёмных кадрах средний цвет почти чёрный и подсветку «не
-        // видно». Ограниченно поднимаем яркость, сохраняя оттенок (как в ambilight);
-        // яркие кадры не трогаем.
         const maxC = Math.max(r, g, b);
-        const boost = maxC > 0 ? Math.max(1, Math.min(12, 220 / maxC)) : 1;
-        r = Math.min(255, Math.round(r * boost));
-        g = Math.min(255, Math.round(g * boost));
-        b = Math.min(255, Math.round(b * boost));
-        playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.85)`);
+        if (maxC >= 12) {
+          // 10.5-fix: тёмный, но не чёрный кадр — ограниченно поднимаем яркость,
+          // сохраняя оттенок (как в ambilight); яркие кадры не трогаем.
+          const boost = Math.max(1, Math.min(12, 220 / maxC));
+          r = Math.min(255, Math.round(r * boost));
+          g = Math.min(255, Math.round(g * boost));
+          b = Math.min(255, Math.round(b * boost));
+          playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.85)`);
+        } else {
+          // 10.7-fix: кадр фактически чёрный. Так бывает, когда браузер не отдаёт
+          // аппаратно декодированный кадр в canvas (например, Firefox на телефоне) —
+          // подсветка пропадала. Тогда показываем мягкую подсветку акцентом.
+          playerOuter.style.setProperty('--ambient-color', 'rgba(57, 255, 20, 0.45)');
+        }
         playerOuter.classList.add('ambient');
         ambientErrorStreak = 0;
       } catch (e) {
@@ -3540,13 +3553,13 @@
     clearTimeout(seekFlashTimer);
     seekFlashTimer = setTimeout(() => seekFlash.classList.remove('show'), 650);
   }
-  // 10.4: вибрация (если тумблер включён и API доступно). 10.5-fix: проверяем
-  // наличие функции — на iOS (Safari/WebView) Vibration API нет вовсе.
+  // 10.4: вибрация (10.7-fix: только на тап; из перемотки и настроек убрана).
+  // Проверяем наличие функции — на iOS (Safari/WebView) Vibration API нет вовсе.
   const vibroSupported = (() => {
     try { return typeof navigator.vibrate === 'function'; } catch (e) { return false; }
   })();
   function haptic(ms) {
-    if (!vibroOn || !vibroSupported) return;
+    if (!vibroSupported) return;
     try { navigator.vibrate(ms); } catch (e) {}
   }
 
@@ -3704,7 +3717,6 @@
     if (x < 0.33) { skipBy(-currentStep); flashSeek(-currentStep, 'left'); }
     else if (x > 0.66) { skipBy(currentStep); flashSeek(currentStep, 'right'); }
     else toggleFullscreen();
-    if (x < 0.33 || x > 0.66) haptic(35);   // 10.5-fix: вибрация на перемотке (ощутимее)
   }
 
   playerContainer.addEventListener('pointerdown', handlePointerDown);
@@ -3825,7 +3837,6 @@
   let autoNext = true;                    // 5.1: автопереход к следующей серии
   let wakeOn = true;                      // 10.1: не гасить экран во время просмотра
   let brightness = 1;                     // 10.2: яркость видео (0.2–1, фильтр на <video>)
-  let vibroOn = true;                     // 10.4: лёгкая вибрация на тапе/перемотке
 
   // 4.1: настройки (скорость, шаг, громкость, ambient).
   function saveSettings() {
@@ -3844,8 +3855,6 @@
       wake: wakeOn,
       // Шаг 10.2: яркость (жест по левому краю).
       bright: brightness,
-      // Шаг 10.4: вибрация.
-      vibrate: vibroOn,
     });
   }
   function restoreSettings() {
@@ -3868,9 +3877,6 @@
     if (typeof s.wake === 'boolean') { wakeOn = s.wake; wakeToggle.checked = wakeOn; }
     // Шаг 10.2: яркость (по умолчанию 100%).
     if (typeof s.bright === 'number') applyBrightness(s.bright);
-    // Шаг 10.4: вибрация (по умолчанию включена). 10.6-fix: если API нет —
-    // всегда выключена, независимо от сохранённого значения.
-    if (typeof s.vibrate === 'boolean') { vibroOn = vibroSupported && s.vibrate; vibrateToggle.checked = vibroOn; }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
@@ -4380,32 +4386,6 @@
       wakeOn = wakeToggle.checked;
       saveSettings();
       if (wakeOn) acquireWakeLock(); else releaseWakeLock();
-    });
-  }
-
-  // ----- 10.4: лёгкая вибрация (тумблер «Вибрация») ----------------------
-  if (vibrateToggle) {
-    if (!vibroSupported) {
-      // 10.6-fix: на устройствах без Vibration API тумблер заблокирован и помечен,
-      // а не выглядит «включённым, но неработающим».
-      vibrateToggle.disabled = true;
-      vibrateToggle.checked = false;
-      vibroOn = false;
-      const row = vibrateToggle.closest('.settings-toggle');
-      if (row) {
-        row.classList.add('is-disabled');
-        row.setAttribute('title', 'Вибрация не поддерживается этим браузером');
-      }
-    }
-    vibrateToggle.addEventListener('change', () => {
-      vibroOn = vibrateToggle.checked;
-      saveSettings();
-      if (vibroOn) {
-        // 10.5-fix: если API нет (например, iPhone) — честно говорим об этом,
-        // иначе тумблер выглядит нерабочим.
-        if (vibroSupported) haptic(40);
-        else showToast('Вибрация не поддерживается на этом устройстве');
-      }
     });
   }
 
