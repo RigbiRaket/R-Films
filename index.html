@@ -699,6 +699,71 @@
     to { opacity: 1; transform: none; }
   }
 
+  /* ====== 10.9: подсказка о вертикальном свайпе по краям ======
+     Разовая «занавеска»: слева — яркость, справа — громкость. Рисуется в стиле
+     переключателя серий — зелёная точка + стрелки (вверх/вниз), только по вертикали. */
+  .gesture-hint {
+    position: absolute;
+    inset: 0;
+    z-index: 33;                       /* выше нижней строки (20), ниже центр-иконки (34) */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px 84px;           /* снизу оставляем нижнюю строку управления */
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease;
+  }
+  .gesture-hint.show { opacity: 1; visibility: visible; }
+  .gh-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-width: 80px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    background: rgba(10, 12, 18, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  }
+  .gh-icon { width: 26px; height: 26px; opacity: 0.95; }
+  .gh-label { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
+  .gh-grip { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .gh-grip .gh-chev { width: 16px; height: 16px; color: rgba(255, 255, 255, 0.9); }
+  .gh-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 9px var(--accent);
+    animation: gh-dot 1.7s ease-in-out infinite;
+  }
+  .gh-chev.gh-up { animation: gh-chev 1.7s ease-in-out infinite; }
+  .gh-chev.gh-down { animation: gh-chev 1.7s ease-in-out infinite 0.85s; }
+  @keyframes gh-dot {
+    0%, 100% { transform: translateY(-7px); }
+    50% { transform: translateY(7px); }
+  }
+  @keyframes gh-chev {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  .player-container.locked .gesture-hint,
+  .player-container.embed-mode .gesture-hint { display: none !important; }
+
+  /* 10.9: раздел «Жесты» в настройках — список с глифами в том же стиле. */
+  .gestures-list { display: flex; flex-direction: column; gap: 6px; padding: 2px 4px; }
+  .g-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.25; color: var(--text); }
+  .g-glyph { width: 20px; height: 20px; flex-shrink: 0; color: rgba(255, 255, 255, 0.85); }
+  .g-glyph .g-dot { fill: var(--accent); }
+  /* на активной (зелёной) иконке точка сливается — делаем её тёмной */
+  .settings-grid button.active svg .g-dot { fill: currentColor; }
+  .gestures-replay { margin-top: 8px; }
+
   /* ====== Controls ====== */
   .controls {
     position: absolute;
@@ -1553,6 +1618,28 @@
         <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
       </div>
 
+      <!-- 10.9: разовая подсказка — вертикальный свайп по краям (яркость/громкость). -->
+      <div class="gesture-hint hidden" id="gestureHint" aria-hidden="true">
+        <div class="gh-side gh-left">
+          <svg class="gh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.2" y1="4.2" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.8" y2="4.2"/></svg>
+          <span class="gh-label">Яркость</span>
+          <span class="gh-grip">
+            <svg class="gh-chev gh-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+            <span class="gh-dot"></span>
+            <svg class="gh-chev gh-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+        <div class="gh-side gh-right">
+          <svg class="gh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+          <span class="gh-label">Громкость</span>
+          <span class="gh-grip">
+            <svg class="gh-chev gh-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+            <span class="gh-dot"></span>
+            <svg class="gh-chev gh-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+      </div>
+
       <div class="error-overlay hidden" id="errorOverlay" role="alertdialog" aria-label="Ошибка воспроизведения">
         <div class="error-box">
           <div class="error-title" id="errorTitle">Не удалось воспроизвести</div>
@@ -1694,6 +1781,9 @@
           <button class="settings-nav-btn" data-target="stepSection" data-title="Шаг перемотки" title="Шаг перемотки" aria-label="Шаг перемотки">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
           </button>
+          <button class="settings-nav-btn" data-target="gesturesSection" data-title="Жесты" title="Жесты" aria-label="Жесты">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 9.5 12 4.5 17 9.5"/><polyline points="7 14.5 12 19.5 17 14.5"/><circle class="g-dot" cx="12" cy="12" r="2.3" fill="var(--accent)" stroke="none"/></svg>
+          </button>
           <button class="settings-nav-btn" data-action="copy" title="Скопировать ссылку" aria-label="Скопировать ссылку">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </button>
@@ -1781,6 +1871,38 @@
               <button data-step="60" aria-pressed="false">60 с</button>
             </div>
           </div>
+          <!-- 10.9: раздел «Жесты» — справка по управлению + повтор подсказки. -->
+          <div class="settings-section" id="gesturesSection">
+            <div class="gestures-list">
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 9 12 5 16 9"/><polyline points="8 15 12 19 16 15"/><circle class="g-dot" cx="12" cy="12" r="2.2" stroke="none"/></svg>
+                <span>Свайп по правому краю — громкость</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 9 12 5 16 9"/><polyline points="8 15 12 19 16 15"/><circle class="g-dot" cx="12" cy="12" r="2.2" stroke="none"/></svg>
+                <span>Свайп по левому краю — яркость</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/><circle class="g-dot" cx="12" cy="12" r="2.2" stroke="none"/></svg>
+                <span>Свайп по видео вбок — скорость (до 4×)</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 7 6 12 11 17"/><polyline points="18 7 13 12 18 17"/></svg>
+                <span>Двойной тап по бокам — перемотка на шаг</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                <span>Двойной тап по центру — полный экран</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                <span>Одиночный тап — интерфейс или пауза</span>
+              </div>
+            </div>
+            <div class="gestures-replay settings-options">
+              <button type="button" id="gestureReplayBtn">Показать подсказку ещё раз</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1856,6 +1978,8 @@
   const resumePill       = $('resumePill');
   const resumeBtn        = $('resumeBtn');
   const resumeCloseBtn   = $('resumeCloseBtn');
+  const gestureHint      = $('gestureHint');
+  const gestureReplayBtn = $('gestureReplayBtn');
   const nextOverlay      = $('nextOverlay');
   const nextTitle        = $('nextTitle');
   const nextGoBtn        = $('nextGoBtn');
@@ -4407,6 +4531,50 @@
       wakeOn = wakeToggle.checked;
       saveSettings();
       if (wakeOn) acquireWakeLock(); else releaseWakeLock();
+    });
+  }
+
+  // ============================================================
+  //  10.9: подсказка о вертикальных свайпах по краям
+  // ============================================================
+  let gestureHintTimer = null;
+  let gestureHintSeen = false;   // на случай, если localStorage недоступен
+  // Авто-подсказка — только на тач-устройствах (на десктопе по краям не свайпают).
+  const gestureIsTouch = (() => {
+    try { return window.matchMedia && window.matchMedia('(pointer: coarse)').matches; }
+    catch (e) { return false; }
+  })();
+  function hideGestureHint() {
+    if (gestureHintTimer) { clearTimeout(gestureHintTimer); gestureHintTimer = null; }
+    if (!gestureHint) return;
+    gestureHint.classList.remove('show');
+    gestureHint.classList.add('hidden');
+  }
+  function showGestureHint(auto) {
+    if (!gestureHint) return;
+    if (auto && !gestureIsTouch) return;
+    if (gestureHintTimer) clearTimeout(gestureHintTimer);
+    gestureHint.classList.remove('hidden');
+    void gestureHint.offsetWidth;              // перезапуск анимации появления
+    gestureHint.classList.add('show');
+    gestureHintTimer = setTimeout(hideGestureHint, auto ? 5200 : 6500);
+  }
+  // Один раз за всё время — после первого реального воспроизведения.
+  function maybeShowGestureHint() {
+    if (!gestureHint || !gestureIsTouch || gestureHintSeen) return;
+    if (playerContainer.classList.contains('embed-mode')) return;
+    gestureHintSeen = true;
+    if (store.read('gestureHintSeen', false)) return;
+    store.write('gestureHintSeen', true);
+    showGestureHint(true);
+  }
+  nativeVideo.addEventListener('playing', maybeShowGestureHint);
+  // Любое касание плеера прячет подсказку — не мешаем управлять.
+  playerContainer.addEventListener('pointerdown', hideGestureHint, true);
+  if (gestureReplayBtn) {
+    gestureReplayBtn.addEventListener('click', () => {
+      toggleSettings(false);
+      showGestureHint(false);
     });
   }
 
