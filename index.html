@@ -336,6 +336,7 @@
   .player-container.embed-mode .settings-panel,
   .player-container.embed-mode .speed-drag-indicator,
   .player-container.embed-mode .seek-flash,
+  .player-container.embed-mode .seek-hud,
   .player-container.embed-mode .seek-preview,
   .player-container.embed-mode .loading-overlay {
     display: none !important;
@@ -392,6 +393,7 @@
   .player-container.locked .controls,
   .player-container.locked .speed-drag-indicator,
   .player-container.locked .seek-flash,
+  .player-container.locked .seek-hud,
   .player-container.locked .resume-pill,
   .player-container.locked .seek-preview {
     display: none !important;
@@ -465,6 +467,48 @@
     gap: 8px;
   }
   .drag-hud-icon { width: 18px; height: 18px; }
+
+  /* 10.10: центральный HUD перемотки — смещение «±m:ss» при протягивании вбок.
+     Сама перемотка применяется только при отпускании; до этого показываем,
+     куда попадём. Вперёд — акцентным зелёным, назад — мягким оранжевым. */
+  .seek-hud {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 116px;
+    padding: 10px 18px;
+    border-radius: 14px;
+    background: rgba(10, 12, 18, 0.68);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    color: #fff;
+    z-index: 25;
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  }
+  .seek-hud-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .seek-hud-time {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .seek-hud.fwd .seek-hud-label,
+  .seek-hud.fwd .seek-hud-time { color: var(--accent); }
+  .seek-hud.back .seek-hud-label,
+  .seek-hud.back .seek-hud-time { color: #ffb46b; }
 
   /* 10.3: вспышка «±шаг» при двойном тапе по бокам.
      10.7-fix: без тёмного круга-подложки — только стрелка и цифра (как было до
@@ -756,13 +800,13 @@
   .player-container.embed-mode .gesture-hint { display: none !important; }
 
   /* 10.9: раздел «Жесты» в настройках — список с глифами в том же стиле. */
-  .gestures-list { display: flex; flex-direction: column; gap: 6px; padding: 2px 4px; }
-  .g-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.25; color: var(--text); }
-  .g-glyph { width: 20px; height: 20px; flex-shrink: 0; color: rgba(255, 255, 255, 0.85); }
+  .gestures-list { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px; }
+  .g-row { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.2; color: var(--text); }
+  .g-glyph { width: 19px; height: 19px; flex-shrink: 0; color: rgba(255, 255, 255, 0.85); }
   .g-glyph .g-dot { fill: var(--accent); }
   /* на активной (зелёной) иконке точка сливается — делаем её тёмной */
   .settings-grid button.active svg .g-dot { fill: currentColor; }
-  .gestures-replay { margin-top: 8px; }
+  .gestures-replay { margin-top: 6px; }
 
   /* ====== Controls ====== */
   .controls {
@@ -1578,6 +1622,13 @@
         <div class="bar"><div class="bar-fill" id="dragHudBar"></div></div>
       </div>
 
+      <!-- 10.10: HUD перемотки протягиванием вбок — смещение «±m:ss».
+           Сама перемотка применяется только при отпускании пальца/мыши. -->
+      <div class="seek-hud hidden" id="seekHud" aria-hidden="true">
+        <span class="seek-hud-label" id="seekHudLabel">Перемотка</span>
+        <span class="seek-hud-time" id="seekHudTime">00:00</span>
+      </div>
+
       <!-- 10.3: вспышка перемотки при двойном тапе по бокам. -->
       <div class="seek-flash left" id="seekFlash" aria-hidden="true">
         <svg class="seek-flash-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 6 7 12 13 18"/><polyline points="19 6 13 12 19 18"/></svg>
@@ -1884,7 +1935,11 @@
               </div>
               <div class="g-row">
                 <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/><circle class="g-dot" cx="12" cy="12" r="2.2" stroke="none"/></svg>
-                <span>Свайп по видео вбок — скорость (до 4×)</span>
+                <span>Свайп по видео вбок — перемотка (±m:ss)</span>
+              </div>
+              <div class="g-row">
+                <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 8 12 3 16"/><polyline points="10 8 15 12 10 16"/><polyline points="17 8 22 12 17 16"/></svg>
+                <span>Зажать край и потянуть вбок — скорость (до 4×)</span>
               </div>
               <div class="g-row">
                 <svg class="g-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 7 6 12 11 17"/><polyline points="18 7 13 12 18 17"/></svg>
@@ -1956,6 +2011,9 @@
   const dragHudBright    = $('dragHudBright');
   const dragHudText      = $('dragHudText');
   const dragHudBar       = $('dragHudBar');
+  const seekHud          = $('seekHud');
+  const seekHudLabel     = $('seekHudLabel');
+  const seekHudTime      = $('seekHudTime');
   const seekFlash        = $('seekFlash');
   const seekFlashText    = $('seekFlashText');
   const seekPreview      = $('seekPreview');
@@ -2073,6 +2131,7 @@
   let controlsHideTimer = null;
   let toastTimer = null;
   let pointerDown = null;
+  let pointerHoldTimer = null;   // 10.10: удержание у края — «заряд» ускорения
   let clickTimeout = null;
   let spaceHoldTimer = null;
   let spaceHeld = false;
@@ -2757,8 +2816,8 @@
     // Шаг 4.1: `load()` сбрасывает playbackRate к defaultPlaybackRate,
     // поэтому держим их синхронными — иначе скорость теряется при загрузке.
     try { nativeVideo.defaultPlaybackRate = rate; } catch {}
-    // 10.2: не перебиваем активный горизонтальный свайп скорости по видео.
-    const speedDragging = pointerDown && pointerDown.mode === 'side' && pointerDown.axis !== 'v';
+    // 10.2: не перебиваем активный жест скорости по видео (10.10: по удержанию).
+    const speedDragging = pointerDown && pointerDown.speedActive;
     if (!speedDragging) nativeVideo.playbackRate = rate;
     speedOptions.querySelectorAll('button').forEach(b => {
       const on = parseFloat(b.dataset.speed) === rate;
@@ -3708,6 +3767,58 @@
     try { navigator.vibrate(ms); } catch (e) {}
   }
 
+  // ============================================================
+  //  10.10: жесты протягиванием — перемотка по умолчанию, ускорение по удержанию
+  // ============================================================
+  //  Вбок по видео — перемотка («+m:ss» / «−m:ss» по центру), которая
+  //  применяется ТОЛЬКО при отпускании пальца/мыши: протянул и вернул назад —
+  //  ничего не перематывается. Чтобы ускорить, сначала удерживают край
+  //  (≈0.4 с), а уже потом тянут вбок. Вертикаль по краям остаётся
+  //  громкостью/яркостью, вертикаль в центре — «шторкой» (скрыть интерфейс).
+  const SEEK_PER_WIDTH = 120;   // секунд перемотки на всю ширину плеера
+  const SPEED_HOLD_MS  = 400;   // удержание, после которого включается ускорение
+  const GESTURE_EPS    = 10;    // порог начала жеста / отличия протяжки от тапа (px)
+
+  // Смещение перемотки из протяжки: px → секунды (с округлением).
+  function seekOffsetFromDrag(dx, width) {
+    if (!isFinite(width) || width <= 0) return 0;
+    return Math.round((dx / width) * SEEK_PER_WIDTH);
+  }
+  // Подпись центрального HUD: «+m:ss» / «−m:ss»; ровно ноль — «00:00».
+  function seekHudText(offset) {
+    const n = Math.abs(Math.round(offset));
+    const m = Math.floor(n / 60);
+    const s = n % 60;
+    const clock = m + ':' + String(s).padStart(2, '0');
+    if (n === 0) return '00:00';
+    return (offset > 0 ? '+' : '−') + clock;
+  }
+  // Что делает жест: 'seek' | 'speed' | 'volume' | 'bright' | 'peek' | 'none'.
+  function gestureAction(pd) {
+    if (!pd || !pd.axis) return 'none';
+    if (pd.axis === 'v') {
+      if (pd.mode !== 'side') return 'peek';
+      return pd.side === 'left' ? 'bright' : 'volume';
+    }
+    return (pd.speedArmed && pd.mode === 'side') ? 'speed' : 'seek';
+  }
+  let seekHudTimer = null;
+  function showSeekHud(offset) {
+    if (!seekHud) return;
+    const n = Math.round(offset);
+    seekHudLabel.textContent = n === 0 ? 'Перемотка' : (n > 0 ? 'Вперёд' : 'Назад');
+    seekHudTime.textContent = seekHudText(offset);
+    seekHud.classList.toggle('fwd', n > 0);
+    seekHud.classList.toggle('back', n < 0);
+    seekHud.classList.remove('hidden');
+    clearTimeout(seekHudTimer);
+  }
+  function hideSeekHud(delay) {
+    if (!seekHud) return;
+    clearTimeout(seekHudTimer);
+    seekHudTimer = setTimeout(() => seekHud.classList.add('hidden'), delay || 0);
+  }
+
   function handlePointerDown(e) {
     // 10.5-fix: в блокировке тап по видео показывает «замочек» — иначе на
     // телефоне его не вернуть (hover там нет, а таймер его прячет).
@@ -3730,15 +3841,28 @@
       xRatio: x,
       yRatio: y,
       mode: 'none',
-      targetSpeed: 1,
       axis: null,
-      height: rect.height || 1
+      speedArmed: false,    // 10.10: удержание у края «зарядило» ускорение
+      speedActive: false,   // 10.10: ускорение уже применяется
+      isHiding: false,
+      seekOffset: 0,
+      targetSpeed: 1,
+      height: rect.height || 1,
+      width: rect.width || 1
     };
 
-    // 10.2: бока — горизонтально скорость, вертикально громкость/яркость.
+    // 10.2: бока — вертикально громкость/яркость, вбок скорость (10.10: по
+    // удержанию). Центр — вертикально «шторка», вбок перемотка.
     if (x < 0.33 || x > 0.66) {
       pointerDown.mode = 'side';
       pointerDown.side = x < 0.5 ? 'left' : 'right';
+      // 10.10: держим палец на месте — «заряжаем» ускорение. Протянул сразу —
+      // таймер снят в move, значит будет обычная перемотка.
+      const pd = pointerDown;
+      clearTimeout(pointerHoldTimer);
+      pointerHoldTimer = setTimeout(() => {
+        if (pointerDown === pd && !pd.axis) pd.speedArmed = true;
+      }, SPEED_HOLD_MS);
     } else {
       pointerDown.mode = 'center';
     }
@@ -3751,85 +3875,114 @@
     const dx = e.clientX - pointerDown.startX;
     const dy = e.clientY - pointerDown.startY;
 
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-      if (pointerDown.mode === 'side') {
-        // 10.2: ось фиксируем на первом значимом движении.
-        if (!pointerDown.axis) {
-          pointerDown.axis = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
-          if (pointerDown.axis === 'v') {
-            pointerDown.startVolume = nativeVideo.muted ? 0 : nativeVideo.volume;
-            pointerDown.startBright = brightness;
-          }
-        }
-        if (pointerDown.axis === 'v') {
-          const delta = -dy / pointerDown.height;   // вверх — больше
-          if (pointerDown.side === 'left') {
-            applyBrightness(pointerDown.startBright + delta);
-            showDragHud('bright', brightness);
-          } else {
-            setVolumeFromGesture(pointerDown.startVolume + delta);
-            showDragHud('vol', nativeVideo.muted ? 0 : nativeVideo.volume);
-          }
-        } else {
-          const baseSpeed = 2.0;
-          let rate = baseSpeed;
+    // 10.10: пока палец почти не сдвинулся — оставляем шанс «зажать» (ускорение).
+    if (!pointerDown.axis && Math.abs(dx) < GESTURE_EPS && Math.abs(dy) < GESTURE_EPS) return;
 
-          if (pointerDown.xRatio < 0.33) {
-            rate = Math.max(0.5, Math.min(1, baseSpeed + (dx / 200)));
-          } else {
-            rate = Math.max(1, Math.min(4, baseSpeed + (dx / 200)));
-          }
-
-          if (!pointerDown.isSpeeding) {
-            pointerDown.isSpeeding = true;
-            if (nativeVideo.paused) nativeVideo.play().catch(()=>{});
-            nativeVideo.playbackRate = rate;
-            speedDragIndicator.classList.remove('hidden');
-            playerContainer.classList.add('controls-visible');
-          }
-
-          pointerDown.targetSpeed = rate;
-          nativeVideo.playbackRate = rate;
-          speedDragText.textContent = rate.toFixed(1) + '×';
-
-          const pct = ((rate - 0.5) / 3.5) * 100;
-          speedDragBar.style.width = pct + '%';
-        }
-      } else if (pointerDown.mode === 'center') {
-        if (!pointerDown.isHiding) {
-          pointerDown.isHiding = true;
-          isPausedByDrag = !nativeVideo.paused;
-          if (isPausedByDrag) nativeVideo.pause();
-          playerContainer.classList.remove('controls-visible');
-        }
+    if (!pointerDown.axis) {
+      // Пошло протягивание — «заряд» ускорения больше не наступит.
+      clearTimeout(pointerHoldTimer);
+      // 10.2: ось фиксируем на первом значимом движении.
+      pointerDown.axis = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
+      if (pointerDown.axis === 'v') {
+        pointerDown.startVolume = nativeVideo.muted ? 0 : nativeVideo.volume;
+        pointerDown.startBright = brightness;
       }
+    }
+
+    const action = gestureAction(pointerDown);
+
+    if (action === 'bright' || action === 'volume') {
+      const delta = -dy / pointerDown.height;   // вверх — больше
+      if (action === 'bright') {
+        applyBrightness(pointerDown.startBright + delta);
+        showDragHud('bright', brightness);
+      } else {
+        setVolumeFromGesture(pointerDown.startVolume + delta);
+        showDragHud('vol', nativeVideo.muted ? 0 : nativeVideo.volume);
+      }
+      return;
+    }
+
+    if (action === 'peek') {
+      // 10.2: вертикаль в центре — прячем интерфейс и ставим на паузу.
+      if (!pointerDown.isHiding) {
+        pointerDown.isHiding = true;
+        isPausedByDrag = !nativeVideo.paused;
+        if (isPausedByDrag) nativeVideo.pause();
+        playerContainer.classList.remove('controls-visible');
+      }
+      return;
+    }
+
+    if (action === 'speed') {
+      // 10.10: ускорение — только после удержания у края.
+      const baseSpeed = 2.0;
+      let rate;
+
+      if (pointerDown.xRatio < 0.33) {
+        rate = Math.max(0.5, Math.min(1, baseSpeed + (dx / 200)));
+      } else {
+        rate = Math.max(1, Math.min(4, baseSpeed + (dx / 200)));
+      }
+
+      if (!pointerDown.speedActive) {
+        pointerDown.speedActive = true;
+        if (nativeVideo.paused) nativeVideo.play().catch(()=>{});
+        speedDragIndicator.classList.remove('hidden');
+        playerContainer.classList.add('controls-visible');
+      }
+
+      pointerDown.targetSpeed = rate;
+      nativeVideo.playbackRate = rate;
+      speedDragText.textContent = rate.toFixed(1) + '×';
+
+      const pct = ((rate - 0.5) / 3.5) * 100;
+      speedDragBar.style.width = pct + '%';
+      return;
+    }
+
+    if (action === 'seek') {
+      // 10.10: показываем, куда попадём; сама перемотка — только при отпускании.
+      pointerDown.seekOffset = seekOffsetFromDrag(dx, pointerDown.width);
+      showSeekHud(pointerDown.seekOffset);
     }
   }
 
   function handlePointerUp(e) {
     if (!pointerDown) return;
-    
-    const dt = Date.now() - pointerDown.startTime;
-    const dx = e.clientX - pointerDown.startX;
-    const dy = e.clientY - pointerDown.startY;
+    clearTimeout(pointerHoldTimer);
 
-    if (pointerDown.mode === 'side' && pointerDown.isSpeeding) {
+    const pd = pointerDown;
+    pointerDown = null;
+
+    const dt = Date.now() - pd.startTime;
+    const dx = e.clientX - pd.startX;
+    const dy = e.clientY - pd.startY;
+
+    // 10.10: ускорение снимаем и возвращаем обычную скорость.
+    if (pd.speedActive) {
       nativeVideo.playbackRate = userSpeed;
       speedDragIndicator.classList.add('hidden');
     }
-    if (pointerDown.mode === 'side' && pointerDown.axis === 'v') {
-      // 10.2: завершили жест громкости/яркости — прячем HUD и запоминаем.
+    // 10.10: перемотку применяем ТОЛЬКО при отпускании, и ровно ноль — ничего
+    // не делаем (можно «вернуть» палец назад и не перематывать). Отсчёт — от
+    // текущей позиции на момент отпускания.
+    if (pd.axis === 'h' && !pd.speedActive) {
+      const offset = pd.seekOffset | 0;
+      if (offset !== 0) seekToTime(nativeVideo.currentTime + offset);
+      hideSeekHud(offset !== 0 ? 700 : 0);
+    }
+    // 10.2: завершили жест громкости/яркости — прячем HUD и запоминаем.
+    if (pd.axis === 'v' && pd.mode === 'side') {
       hideDragHud();
       saveSettings();
     }
-    if (pointerDown.mode === 'center' && pointerDown.isHiding) {
+    if (pd.mode === 'center' && pd.isHiding) {
       if (isPausedByDrag) nativeVideo.play().catch(()=>{});
     }
 
-    // 10.2: вертикальный свайп тоже «перетаскивание» — не превращаем его в тап.
-    const isDrag = Math.abs(dx) > 10 || Math.abs(dy) > 10;
-    pointerDown = null;
-
+    // 10.2: протяжка (любая ось) — не превращаем её в тап.
+    const isDrag = Math.abs(dx) > GESTURE_EPS || Math.abs(dy) > GESTURE_EPS;
     if (isDrag) return;
 
     if (dt < 400) {
