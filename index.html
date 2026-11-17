@@ -267,9 +267,11 @@
     max-height: calc(100dvh - 200px);
     transition: box-shadow 0.3s ease;
   }
-  /* 10.5-fix: подсветка стала заметнее — больше разлёт и второй контур. */
+  /* 10.5-fix: подсветка стала заметнее — больше разлёт и второй контур.
+     10.6-fix: ещё больше разлёт/непрозрачность — на телефоне подсветку было
+     почти не видно. */
   .player-outer.ambient {
-    box-shadow: 0 0 110px 24px var(--ambient-color, var(--accent-dim));
+    box-shadow: 0 0 120px 30px var(--ambient-color, var(--accent-dim));
   }
   .player-container {
     position: relative;
@@ -355,9 +357,13 @@
     backdrop-filter: blur(8px);
   }
   /* 8.x-fix: замочек в блокировке прячется по бездействию (класс `lock-visible`
-     ставит JS на движение мыши) и снова показывается, когда мышь указывает на него. */
+     ставит JS на движение мыши) и снова показывается, когда мышь указывает на него.
+     10.6-fix: замочек показывается вместе с интерфейсом (`controls-visible`) — это
+     работает и на тач, и в полноэкранном режиме, где hover нет. Раньше на телефоне
+     он висел всегда и в фуллскрине никуда не исчезал. */
   .player-container:hover .lock-btn,
-  .player-container.lock-visible .lock-btn {
+  .player-container.lock-visible .lock-btn,
+  .player-container.controls-visible:not(.locked) .lock-btn {
     opacity: 1;
   }
   .lock-btn:hover { background: rgba(40, 42, 50, 0.9); }
@@ -792,8 +798,10 @@
   }
   .ctrl-btn:hover { background: rgba(255,255,255,0.1); color: var(--accent); }
   .ctrl-btn:active { background: rgba(255,255,255,0.2); }
-  /* Шаг 7.4: активный режим «Театр/Фокус». */
-  .ctrl-btn.active { color: var(--accent); background: rgba(57, 255, 20, 0.12); }
+  /* Шаг 7.4: активный режим «Театр/Фокус». 10.6-fix: заливку сделали сплошной
+     (как у `.settings-grid button.active`) — бледный 12%-й фон почти не читался,
+     и казалось, что кнопка «не загорается». */
+  .ctrl-btn.active { color: #000; background: var(--accent); }
   .ctrl-btn svg { width: 24px; height: 24px; }
   .play-btn { width: 46px; height: 46px; }
   .play-btn svg { width: 28px; height: 28px; }
@@ -918,7 +926,11 @@
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     /* U26: со списком серий панель стала выше окна — прокручиваем её. */
     max-height: calc(100% - 122px);
-    overflow-y: auto;
+    /* 10.6-fix: панель — flex-колонка; прокрутка живёт внутри раздела, поэтому
+       размер панели не «скачет» при переключении иконок. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     overscroll-behavior: contain;
     animation: settings-in 0.15s ease-out;
   }
@@ -1016,6 +1028,9 @@
   }
   .settings-toggle input:checked + .toggle-switch { background: var(--accent); }
   .settings-toggle input:checked + .toggle-switch::after { transform: translateX(16px); }
+  /* 10.6-fix: неактивный тумблер (функция не поддерживается браузером). */
+  .settings-toggle.is-disabled { opacity: 0.5; cursor: not-allowed; }
+  .settings-toggle.is-disabled .toggle-switch { background: rgba(255,255,255,0.12); }
 
   /* 8.x: меню настроек — ряд иконок; раздел раскрывается ПРЯМО ПОД НИМ
      (инлайн, без «папки» и кнопки «назад») с анимацией въезда слева направо. */
@@ -1024,6 +1039,7 @@
     grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
     gap: 6px;
     padding: 2px 2px 6px;
+    flex: 0 0 auto;   /* 10.6-fix: ряд иконок не сжимается при открытом разделе */
   }
   .settings-grid button {
     height: 42px;
@@ -1051,6 +1067,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;   /* 10.6-fix: раздел прокручивается, не распирая панель */
   }
   .settings-body[hidden] { display: none; }
   .settings-body.anim { animation: settings-body-in 0.22s ease-out; }
@@ -1334,11 +1351,15 @@
       top: auto;
       bottom: 8px;
       width: auto;
-      max-height: 82vh;
-      max-height: 82dvh;
-      overflow-y: auto;
+      /* 10.6-fix: «шторка» одного размера — высота фиксирована, поэтому меню не
+         прыгает вверх/вниз при переключении разделов. */
+      height: min(78dvh, 620px);
+      max-height: calc(100dvh - 16px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-    .settings-body { height: auto; }
+    .settings-body { flex: 1 1 auto; height: auto; min-height: 0; }
   }
 
   /* 10.5-fix: альбомная ориентация телефона — шапка компактная (раньше названия
@@ -1365,10 +1386,9 @@
      На тач нет hover. Кнопки нижней строки — крупные тап-зоны (≥42px);
      лишние регуляторы на узком экране скрыты (см. `max-width: 760px`). */
   @media (hover: none), (pointer: coarse) {
-    /* Шаг 2.1: кнопка блокировки видна без hover — иначе на тач её не найти.
-       10.5-fix: но в режиме блокировки она прячется (по тапу всплывает) — иначе
-       «замочек» висел бы на экране всегда. */
-    .player-container:not(.locked) .lock-btn { opacity: 1; }
+    /* Шаг 2.1: кнопка блокировки видна без hover.
+       10.6-fix: но теперь — вместе с интерфейсом (`controls-visible`), а не всегда:
+       иначе «замочек» висел на экране постоянно и не исчезал в фуллскрине. */
     /* Крупные тап-зоны у overlay-кнопок (≥44px). */
     .lock-btn, .dl-btn { width: 44px; height: 44px; }
     .lock-btn svg { width: 20px; height: 20px; }
@@ -2057,6 +2077,10 @@
   function showControls() {
     if (isLocked || playerContainer.classList.contains('embed-mode')) return;
     playerContainer.classList.add('controls-visible');
+    // 10.6-fix: активный «Театр/Фокус» подсвечивается надёжно — состояние кнопки
+    // переустанавливаем при каждом показе интерфейса (иконка теперь ещё и с
+    // заметной сплошной заливкой).
+    theaterBtn.classList.toggle('active', theaterMode);
     clearTimeout(controlsHideTimer);
     if (!nativeVideo.paused && !settingsOpen && !pointerDown) {
       controlsHideTimer = setTimeout(() => {
@@ -2165,11 +2189,11 @@
         // видно». Ограниченно поднимаем яркость, сохраняя оттенок (как в ambilight);
         // яркие кадры не трогаем.
         const maxC = Math.max(r, g, b);
-        const boost = maxC > 0 ? Math.max(1, Math.min(8, 190 / maxC)) : 1;
+        const boost = maxC > 0 ? Math.max(1, Math.min(12, 220 / maxC)) : 1;
         r = Math.min(255, Math.round(r * boost));
         g = Math.min(255, Math.round(g * boost));
         b = Math.min(255, Math.round(b * boost));
-        playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.7)`);
+        playerOuter.style.setProperty('--ambient-color', `rgba(${r},${g},${b},0.85)`);
         playerOuter.classList.add('ambient');
         ambientErrorStreak = 0;
       } catch (e) {
@@ -2178,7 +2202,7 @@
         // тумблер «Ambient» выглядел нерабочим. Теперь оставляем мягкую
         // статичную подсветку акцентом и пробуем реже, не жгя CPU.
         ambientErrorStreak++;
-        playerOuter.style.setProperty('--ambient-color', 'rgba(57, 255, 20, 0.3)');
+        playerOuter.style.setProperty('--ambient-color', 'rgba(57, 255, 20, 0.45)');
         playerOuter.classList.add('ambient');
         lastAmbientAt = now + 1400;   // следующий замер — не раньше ~1.5 с
       }
@@ -3518,11 +3542,12 @@
   }
   // 10.4: вибрация (если тумблер включён и API доступно). 10.5-fix: проверяем
   // наличие функции — на iOS (Safari/WebView) Vibration API нет вовсе.
+  const vibroSupported = (() => {
+    try { return typeof navigator.vibrate === 'function'; } catch (e) { return false; }
+  })();
   function haptic(ms) {
-    if (!vibroOn) return;
-    try {
-      if (typeof navigator.vibrate === 'function') navigator.vibrate(ms);
-    } catch (e) {}
+    if (!vibroOn || !vibroSupported) return;
+    try { navigator.vibrate(ms); } catch (e) {}
   }
 
   function handlePointerDown(e) {
@@ -3649,13 +3674,20 @@
 
     if (isDrag) return;
 
-    if (dt < 300) {
+    if (dt < 400) {
       if (clickTimeout) clearTimeout(clickTimeout);
       // 10.5-fix: отклик даём сразу на тап (внутри жеста) и делаем его ощутимым —
-      // 8 мс многие телефоны попросту не «прокручивают». Сам play/pause — с
-      // задержкой 250 мс, чтобы успеть распознать двойной тап.
-      haptic(25);
-      clickTimeout = setTimeout(() => { togglePlay(); }, 250);
+      // 8 мс многие телефоны попросту не «прокручивают».
+      // 10.6-fix: тап стал «двухступенчатым»: если интерфейс скрыт, первый тап его
+      // показывает; повторный тап (когда интерфейс уже виден или видео на паузе) —
+      // play/pause. Сам play/pause — с задержкой 250 мс, чтобы успеть распознать
+      // двойной тап.
+      haptic(30);
+      const uiVisible = playerContainer.classList.contains('controls-visible') || nativeVideo.paused;
+      clickTimeout = setTimeout(() => {
+        if (uiVisible) togglePlay();
+        else showControls();
+      }, 250);
     }
   }
 
@@ -3836,8 +3868,9 @@
     if (typeof s.wake === 'boolean') { wakeOn = s.wake; wakeToggle.checked = wakeOn; }
     // Шаг 10.2: яркость (по умолчанию 100%).
     if (typeof s.bright === 'number') applyBrightness(s.bright);
-    // Шаг 10.4: вибрация (по умолчанию включена).
-    if (typeof s.vibrate === 'boolean') { vibroOn = s.vibrate; vibrateToggle.checked = vibroOn; }
+    // Шаг 10.4: вибрация (по умолчанию включена). 10.6-fix: если API нет —
+    // всегда выключена, независимо от сохранённого значения.
+    if (typeof s.vibrate === 'boolean') { vibroOn = vibroSupported && s.vibrate; vibrateToggle.checked = vibroOn; }
   }
 
   // Ключ позиции/предпочтений: сериал — по id движка + сезон/серия,
@@ -4298,6 +4331,7 @@
     try { return 'wakeLock' in navigator && !!navigator.wakeLock; } catch (e) { return false; }
   })();
   let wakeSentinel = null;
+  let wakeRetryTimer = null;
   async function acquireWakeLock() {
     if (!wakeLockOk || !wakeOn) return;
     if (nativeVideo.paused || nativeVideo.ended) return;
@@ -4307,20 +4341,41 @@
     try {
       wakeSentinel = await navigator.wakeLock.request('screen');
       wakeSentinel.addEventListener('release', () => { wakeSentinel = null; });
-    } catch (e) { wakeSentinel = null; }
+    } catch (e) {
+      // 10.6-fix: запрос мог не пройти раньше времени (до метаданных/жеста) —
+      // пробуем ещё раз чуть позже, а не сдаёмся навсегда.
+      wakeSentinel = null;
+      if (!wakeRetryTimer) {
+        wakeRetryTimer = setTimeout(() => { wakeRetryTimer = null; acquireWakeLock(); }, 1500);
+      }
+    }
   }
   function releaseWakeLock() {
     const s = wakeSentinel;
     wakeSentinel = null;
+    if (wakeRetryTimer) { clearTimeout(wakeRetryTimer); wakeRetryTimer = null; }
     if (s) { try { s.release(); } catch (e) {} }
   }
   nativeVideo.addEventListener('play', acquireWakeLock);
+  nativeVideo.addEventListener('playing', acquireWakeLock);   // 10.6-fix: после буферизации
   nativeVideo.addEventListener('pause', releaseWakeLock);
   nativeVideo.addEventListener('ended', releaseWakeLock);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) releaseWakeLock(); else acquireWakeLock();
   });
+  // 10.6-fix: Wake Lock надёжнее берётся внутри пользовательского жеста.
+  playerContainer.addEventListener('pointerup', () => { if (!nativeVideo.paused) acquireWakeLock(); });
   if (wakeToggle) {
+    if (!wakeLockOk) {
+      // 10.6-fix: честно помечаем недоступность (напр. Firefox Android не
+      // предоставляет navigator.wakeLock вовсе).
+      wakeToggle.disabled = true;
+      const row = wakeToggle.closest('.settings-toggle');
+      if (row) {
+        row.classList.add('is-disabled');
+        row.setAttribute('title', 'Не поддерживается этим браузером');
+      }
+    }
     wakeToggle.addEventListener('change', () => {
       wakeOn = wakeToggle.checked;
       saveSettings();
@@ -4330,13 +4385,25 @@
 
   // ----- 10.4: лёгкая вибрация (тумблер «Вибрация») ----------------------
   if (vibrateToggle) {
+    if (!vibroSupported) {
+      // 10.6-fix: на устройствах без Vibration API тумблер заблокирован и помечен,
+      // а не выглядит «включённым, но неработающим».
+      vibrateToggle.disabled = true;
+      vibrateToggle.checked = false;
+      vibroOn = false;
+      const row = vibrateToggle.closest('.settings-toggle');
+      if (row) {
+        row.classList.add('is-disabled');
+        row.setAttribute('title', 'Вибрация не поддерживается этим браузером');
+      }
+    }
     vibrateToggle.addEventListener('change', () => {
       vibroOn = vibrateToggle.checked;
       saveSettings();
       if (vibroOn) {
         // 10.5-fix: если API нет (например, iPhone) — честно говорим об этом,
         // иначе тумблер выглядит нерабочим.
-        if (typeof navigator.vibrate === 'function') haptic(40);
+        if (vibroSupported) haptic(40);
         else showToast('Вибрация не поддерживается на этом устройстве');
       }
     });
