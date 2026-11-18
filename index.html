@@ -379,11 +379,9 @@
   .player-container.controls-visible:not(.locked) .lock-btn {
     opacity: 1;
   }
-  /* 10.7-fix: наведение мыши показывает замок только на устройствах с курсором.
-     На тач «залипший hover» держал замок на экране и в фуллскрине он не скрывался. */
-  @media (hover: hover) and (pointer: fine) {
-    .player-container:hover .lock-btn { opacity: 1; }
-  }
+  /* 10.13: замок живёт ровно столько же, сколько интерфейс: пока мышь двигается
+     по плееру — виден, по бездействию (2.5 с) — гаснет вместе с остальным.
+     Раньше «залипший» `:hover` на контейнере держал его на экране и в покое. */
   .lock-btn:hover { background: rgba(40, 42, 50, 0.9); }
   .lock-btn svg { width: 18px; height: 18px; }
   .player-container.locked .lock-btn {
@@ -402,6 +400,15 @@
   }
   .player-container.locked video,
   .player-container.locked iframe {
+    pointer-events: none;
+  }
+  /* 10.13: при бездействии с экрана уходит ВСЁ — вместе с интерфейсом гаснут
+     подсказка «Продолжить» (resume-pill) и плашка «Сохранить в бот» (bot-pill).
+     Возвращаются на любом движении мыши вместе с интерфейсом. */
+  .resume-pill, .bot-pill { transition: opacity 0.2s ease; }
+  .player-container:not(.controls-visible) .resume-pill:not(.hidden),
+  .player-container:not(.controls-visible) .bot-pill:not(.hidden) {
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -913,7 +920,6 @@
   .player-container.peek .ctrl-row > .ctrl-btn,
   .player-container.peek .ctrl-row > .volume-wrap,
   .player-container.peek .ctrl-row > .spacer,
-  .player-container.peek .lock-btn,
   .player-container.peek .dl-btn {
     opacity: 0 !important;
     pointer-events: none;
@@ -1045,8 +1051,9 @@
 
   .skip-btn { position: relative; }
   .skip-btn svg { width: 21px; height: 21px; }
-  /* 10.12: тело стрелки — точки (dasharray), головка — уголок, как в «Серии». */
-  .skip-btn .skip-tail { stroke-dasharray: 0.1 5.4; stroke-width: 2.3; }
+  /* 10.12: тело стрелки — точки (dasharray), головка — уголок, как в «Серии».
+     10.13: точки (тело) — зелёные, головка остаётся белой. */
+  .skip-btn .skip-tail { stroke: var(--accent); stroke-dasharray: 0.1 5.4; stroke-width: 2.3; }
   .skip-label {
     position: absolute;
     inset: 0;
@@ -1083,6 +1090,9 @@
   #settingsBtn svg .g-center { fill: var(--accent); stroke: none; }
   .pip-square { fill: var(--accent); }
   .th-accent { stroke: var(--accent); }
+  /* 10.13: зелёные точки-акценты — в центре «пуска/паузы» (внизу и в центре
+     плеера), на «дискете» и по центру динамика. */
+  .p-dot, .save-dot, .vol-dot { fill: var(--accent); stroke: none; }
 
   /* 10.12: хронометраж переехал из строки кнопок наверх — слева над полосой. */
   .time-display {
@@ -1848,12 +1858,12 @@
       </a>
 
       <button class="big-play hidden" id="bigPlay" title="Воспроизвести" aria-label="Воспроизвести">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/><circle class="p-dot" cx="12.3" cy="12" r="2.1"/></svg>
       </button>
 
       <div class="center-status" id="centerStatus" aria-hidden="true">
-        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/></svg>
-        <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/><circle class="p-dot" cx="11.5" cy="12" r="2"/></svg>
+        <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/><circle class="p-dot" cx="12" cy="12" r="1.9"/></svg>
       </div>
 
       <!-- 10.9: разовая подсказка — вертикальный свайп по краям (яркость/громкость). -->
@@ -1942,9 +1952,11 @@
           <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)" aria-label="Воспроизвести">
             <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
+              <circle class="p-dot" cx="12.3" cy="12" r="2.1"/>
             </svg>
             <svg class="icon-pause hidden" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
+              <circle class="p-dot" cx="12" cy="12" r="1.9"/>
             </svg>
           </button>
           <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (L)" aria-label="Вперёд на 10 секунд">
@@ -1964,6 +1976,7 @@
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
               <polyline points="17 21 17 13 7 13 7 21"/>
               <polyline points="7 3 7 8 15 8"/>
+              <circle class="save-dot" cx="12" cy="17" r="1.9"/>
             </svg>
           </button>
           <div class="volume-wrap" id="volumeWrap">
@@ -1971,6 +1984,7 @@
               <!-- 10.12: дуги по уровню: 30/60/90% — белые, 150/190% — зелёные. -->
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 4.6 4.4 7.7 1.4 7.7 1.4 16.3 4.4 16.3 8 19.4Z" fill="currentColor" stroke="none"/>
+                <circle class="vol-dot" cx="4.75" cy="12" r="1.9"/>
                 <path class="vol-arc" d="M11.25 8.75a4.6 4.6 0 0 1 0 6.51"/>
                 <path class="vol-arc" d="M13.23 6.77a7.4 7.4 0 0 1 0 10.46"/>
                 <path class="vol-arc" d="M15.21 4.79a10.2 10.2 0 0 1 0 14.42"/>
@@ -1979,6 +1993,7 @@
               </svg>
               <svg class="icon-mute hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M8 4.6 4.4 7.7 1.4 7.7 1.4 16.3 4.4 16.3 8 19.4Z" fill="currentColor" stroke="none"/>
+                <circle class="vol-dot" cx="4.75" cy="12" r="1.9"/>
                 <line x1="23" y1="9" x2="17" y2="15"/>
                 <line x1="17" y1="9" x2="23" y2="15"/>
               </svg>
@@ -2374,6 +2389,15 @@
   // 10.11: указатель сейчас над плеером; «заглядывание» живёт только пока это так.
   let pointerInPlayer = false;
   function clearPeek() { playerContainer.classList.remove('peek'); }
+  // 10.13: «заглядывание» теперь включается и тогда, когда указатель ВНЕ плеера —
+  // под полосой остаются только хронометраж и полоса, кнопки скрыты. Кнопки
+  // появляются, лишь когда мышь над плеером и в нижних 30%.
+  function setPeek(on) {
+    if (!finePointerMQ || !finePointerMQ.matches) return;
+    if (on === playerContainer.classList.contains('peek')) return;
+    if (on) syncPeekShift();
+    playerContainer.classList.toggle('peek', on);
+  }
   let toastTimer = null;
   let pointerDown = null;
   let pointerHoldTimer = null;   // 10.10: удержание у края — «заряд» ускорения
@@ -2537,9 +2561,9 @@
   function showCursor() { playerContainer.classList.remove('cursor-hidden'); }
   function showControls() {
     if (isLocked || playerContainer.classList.contains('embed-mode')) return;
-    // 10.11: интерфейс показан, а указатель вне плеера — «заглядывание» не держим
-    // (иначе после паузы или старта остаётся «только хронометраж»).
-    if (!pointerInPlayer) clearPeek();
+    // 10.13: интерфейс показан, а указатель вне плеера — держим «заглядывание»
+    // (только хронометраж и полоса), кнопки появятся при входе в нижние 30%.
+    if (!pointerInPlayer) setPeek(true);
     showCursor();
     playerContainer.classList.add('controls-visible');
     // 10.6-fix: активный «Театр/Фокус» подсвечивается надёжно — состояние кнопки
@@ -2567,9 +2591,9 @@
   }
   function updatePausedClass() {
     playerContainer.classList.toggle('paused', nativeVideo.paused);
-    // 10.11: пауза показывает интерфейс; если указатель вне плеера — показываем
-    // его целиком, а не «огрызок» из полосы и хронометража.
-    if (!pointerInPlayer) clearPeek();
+    // 10.13: пауза показывает интерфейс; если указатель вне плеера — только
+    // хронометраж и полоса, кнопки скрыты.
+    if (!pointerInPlayer) setPeek(true);
     if (nativeVideo.paused) showCursor();   // 10.12: на паузе курсор всегда виден
     if (!nativeVideo.paused) showControls();
   }
@@ -2619,26 +2643,29 @@
   });
   playerContainer.addEventListener('mouseleave', () => {
     pointerInPlayer = false;
-    clearPeek();
     hideControlsNow();
+    // 10.13: ушли с плеера — под полосой остаются только хронометраж и полоса,
+    // кнопки не показываем до входа в нижние 30%.
+    setPeek(true);
     hideLockBtn();
   });
-  // 10.11: указатель может уйти «мимо» mouseleave (например, под курсором был
-  // закреплённый потомок) — как только он оказался вне плеера, сбрасываем
-  // «заглядывание», чтобы не оставался один хронометраж.
+  // 10.13: движение вне плеера тоже держит «заглядывание»: пока указатель вне
+  // плеера, нижняя строка кнопок не показывается (видна только полоса).
   document.addEventListener('mousemove', (e) => {
-    if (!playerContainer.classList.contains('peek')) return;
     const t = e.target;
-    if (!t || !playerContainer.contains(t)) {
-      pointerInPlayer = false;
-      clearPeek();
-    }
+    if (t && playerContainer.contains(t)) return;   // внутри плеера — его обработчик
+    const rect = playerContainer.getBoundingClientRect();
+    const inside = e.clientX >= rect.left && e.clientX <= rect.right &&
+                   e.clientY >= rect.top && e.clientY <= rect.bottom;
+    if (inside) return;
+    pointerInPlayer = false;
+    setPeek(true);
   });
-  // 10.11: курсор ушёл за пределы окна — тоже сбрасываем «заглядывание».
+  // 10.13: курсор ушёл за пределы окна — тоже «заглядывание».
   document.addEventListener('mouseout', (e) => {
     if (!e.relatedTarget) {
       pointerInPlayer = false;
-      clearPeek();
+      setPeek(true);
     }
   });
   controlsEl.addEventListener('mouseenter', () => {
