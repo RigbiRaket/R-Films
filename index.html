@@ -1212,6 +1212,30 @@
     }
   }
 
+  /* 10.16: у значка громкости дорожка идёт вплотную (зазор 4 px), и подсветка
+     кнопки (38 px) заходила на дорожку. Для этой кнопки рисуем подсветку
+     отдельным слоем 26×26 по центру значка: её правый край (значок + 3 px) не
+     дотягивается до дорожки (зазор ~1 px), а сам значок остаётся на месте. */
+  .volume-wrap .ctrl-btn { position: relative; }
+  .volume-wrap .ctrl-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border-radius: 7px;
+    background: transparent;
+    transition: background 0.15s;
+    pointer-events: none;
+  }
+  .volume-wrap .ctrl-btn:hover,
+  .volume-wrap .ctrl-btn:active { background: transparent; }
+  .volume-wrap .ctrl-btn:hover::before { background: rgba(255,255,255,0.1); }
+  .volume-wrap .ctrl-btn:active::before { background: rgba(255,255,255,0.2); }
+  .volume-wrap .ctrl-btn svg { position: relative; z-index: 1; }
+
   /* Settings Panel */
   .settings-panel {
     position: absolute;
@@ -1864,11 +1888,11 @@
       </a>
 
       <button class="big-play hidden" id="bigPlay" title="Воспроизвести" aria-label="Воспроизвести">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 5v14l11-7z"/><circle class="p-dot" cx="12" cy="12" r="2.1"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 5v14l11-7z"/><circle class="p-dot" cx="10.2" cy="12" r="2.1"/></svg>
       </button>
 
       <div class="center-status" id="centerStatus" aria-hidden="true">
-        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/><circle class="p-dot" cx="12" cy="12" r="2"/></svg>
+        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 5v14l11-7z"/><circle class="p-dot" cx="10.2" cy="12" r="2"/></svg>
         <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/><circle class="p-dot" cx="8" cy="12" r="1.6"/><circle class="p-dot" cx="16" cy="12" r="1.6"/></svg>
       </div>
 
@@ -1958,7 +1982,7 @@
           <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)" aria-label="Воспроизвести">
             <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6.5 5v14l11-7z"/>
-              <circle class="p-dot" cx="12" cy="12" r="2.1"/>
+              <circle class="p-dot" cx="10.2" cy="12" r="2.1"/>
             </svg>
             <svg class="icon-pause hidden" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
@@ -4795,15 +4819,21 @@
     seekToTime(t);
     return true;
   }
+  // 10.16: подсказка «Продолжить» уходит сама через 5 с — и после показа, и
+  // (свежим отсчётом) после запуска воспроизведения. Позиция при этом не
+  // удаляется: при следующем заходе предложим снова.
+  function armResumeAutoHide() {
+    clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(() => {
+      resumeTimer = null;
+      if (!resumePill.classList.contains('hidden')) hideResume(false);
+    }, 5000);
+  }
   function showResumePill(label, targetKeys) {
-    // 8.x-fix: плашка «продолжить» висит, пока пользователь не выберет —
-    // тап («продолжить») или ✕ («начать с начала»). Так продолжение сериала
-    // не теряется, если решение принимают не сразу.
     resumeTargetKeys = targetKeys || [];
     resumeBtn.textContent = label;
     resumePill.classList.remove('hidden');
-    clearTimeout(resumeTimer);
-    resumeTimer = null;
+    armResumeAutoHide();
   }
   function maybeOfferResume() {
     if (nativeVideo.classList.contains('hidden')) return;
@@ -4892,6 +4922,8 @@
     clearTimeout(botPauseTimer);
     botPauseTimer = null;
     hideBotPill();   // продолжили смотреть — плашка больше не нужна
+    // 10.16: запустили воспроизведение — «Продолжить» гаснет через 5 с.
+    if (!resumePill.classList.contains('hidden')) armResumeAutoHide();
   });
   // Триггер 2: возврат на вкладку (свернули приложение/переключились).
   document.addEventListener('visibilitychange', () => {
