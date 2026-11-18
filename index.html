@@ -180,39 +180,53 @@
   }
 
   /* ====== Top Bar / Brand ====== */
+  /* 10.18: бренд переехал влево; его прежнее место в центре занял логотип
+     тайтла (той же высоты), а без логотипа — название текстом. */
   .brand {
-    display: flex;
+    grid-area: brand;
+    justify-self: start;
+    min-width: 0;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
+    gap: 10px;
     font-weight: 800;
-    font-size: 28px;
+    font-size: 24px;
     letter-spacing: -0.02em;
-    padding: 10px 0 20px;
     user-select: none;
-    width: 100%;
   }
   .brand-icon {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
     color: var(--accent);
     filter: drop-shadow(0 0 8px var(--accent-dim));
   }
 
-  /* Шаг 7.2: шапка (бренд + заголовок) собрана в один блок — на мобильном
-     он «липкий» и компактный, чтобы не съедать высоту под видео. */
+  /* Шаг 7.2: шапка (бренд + логотип/заголовок) — один ряд.
+     10.18: бренд слева, логотип тайтла в центре, чип источника справа. */
   .topbar {
     position: relative;
     width: 100%;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "brand title chip";
     align-items: center;
+    column-gap: 12px;
+    padding: 10px 14px;
   }
-  /* Шаг 7.9: бейдж сборки плеера — для поддержки, видно номер версии. */
+  /* Центр шапки: логотип тайтла или (без логотипа) название текстом. */
+  .topbar-title {
+    grid-area: title;
+    justify-self: center;
+    min-width: 0;
+    max-width: min(56vw, 560px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Шаг 7.9: бейдж сборки плеера — для поддержки, видно номер версии.
+     10.18: едет в строке бренда (слева), а не поверх левого угла. */
   .ver-badge {
-    position: absolute;
-    top: 4px;
-    left: 12px;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -220,17 +234,19 @@
     opacity: 0.55;
     user-select: none;
     pointer-events: none;
+    align-self: flex-end;
+    margin: 0 0 3px 2px;
+    white-space: nowrap;
   }
-  /* Шаг 7.10: домен-источник потока в шапке. */
+  /* Шаг 7.10: домен-источник потока в шапке (справа). */
   .source-chip {
-    position: absolute;
-    top: 4px;
-    right: 12px;
+    grid-area: chip;
+    justify-self: end;
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    /* 10.7-fix: не залезаем на центрированный бренд «R·Films» (было 45%). */
-    max-width: 30%;
+    min-width: 0;
+    max-width: 26vw;
     padding: 3px 8px;
     border-radius: 999px;
     background: rgba(255,255,255,0.06);
@@ -245,15 +261,15 @@
 
   /* Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт его в ссылку).
      10.17: это запасной показ, когда логотипа нет — название округлым шрифтом
-     (шрифт подключается по мере нужды), максимум в две строки. */
+     (шрифт подключается по мере нужды), максимум в две строки.
+     10.18: живёт в центре шапки, на месте логотипа. */
   .title-bar {
     width: 100%;
-    max-width: 900px;
-    margin: 0 auto 14px;
-    padding: 0 20px;
+    max-width: 100%;
+    margin: 0;
     text-align: center;
     font-family: 'Nunito', ui-rounded, 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 800;
     letter-spacing: 0.01em;
     line-height: 1.2;
@@ -267,15 +283,15 @@
     -webkit-line-clamp: 2;
   }
 
-  /* Шаг 10.17: логотип тайтла в шапке (`&logo=` с бота), на месте названия.
-     Широкие логотипы TMDB (до ~9:1) вписываются по высоте, без обрезки. */
+  /* Шаг 10.17: логотип тайтла в шапке (`&logo=` с бота).
+     10.18: стоит в центре — на месте бренда. Логотипы TMDB широкие и низкие
+     (до ~9:1), поэтому высота задаёт и ширину: 44px даёт ~400px по ширине. */
   .film-logo {
     display: block;
     width: auto;
     height: auto;
-    max-width: min(92%, 560px);
-    max-height: 58px;
-    margin: 0 auto 14px;
+    max-width: 100%;
+    max-height: 44px;
     object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;
@@ -1664,7 +1680,9 @@
 
   /* Mobile */
   @media (max-width: 760px) {
-    /* Шаг 7.2: шапка «липкая» и компактная — не съедает высоту под видео. */
+    /* Шаг 7.2: шапка «липкая» и компактная — не съедает высоту под видео.
+       10.18: на телефоне бренд и чип — в первой строке, логотип/название —
+       во второй (в один ряд всё не влезает). */
     .topbar {
       position: sticky;
       top: 0;
@@ -1672,15 +1690,22 @@
       background: rgba(15, 16, 24, 0.94);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255,255,255,0.06);
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "brand chip"
+        "title title";
+      row-gap: 4px;
+      padding: 8px 10px;
     }
-    .brand { font-size: 18px; padding: 8px 0 6px; gap: 8px; }
-    .brand-icon { width: 22px; height: 22px; }
-    .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 8px; }
+    .brand { font-size: 17px; gap: 8px; }
+    .brand-icon { width: 21px; height: 21px; }
+    .topbar-title { max-width: 100%; }
+    .title-bar { font-size: 13px; }
     /* 10.17: логотип на телефоне компактнее — шапка «липкая» и не должна
        съедать высоту под видео. */
-    .film-logo { max-height: 40px; max-width: min(92%, 320px); margin-bottom: 8px; }
-    .ver-badge { top: 3px; left: 8px; font-size: 9px; }
-    .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
+    .film-logo { max-height: 36px; max-width: min(100%, 360px); }
+    .ver-badge { font-size: 9px; }
+    .source-chip { font-size: 10px; max-width: 44vw; }
     .controls { padding: 0 10px 8px; }
     /* Шаг 7.1-fix: нижняя строка — ВСЕГДА одна линия (без переноса): правый
        кластер остаётся справа, а не уезжает вниз. На узком экране время — только
@@ -1761,13 +1786,14 @@
      на строку управления; плееру отдаём больше высоты. */
   @media (max-height: 560px) {
     .page { padding: 8px 0; }
-    .brand { font-size: 17px; padding: 4px 0 2px; gap: 8px; }
-    .brand-icon { width: 20px; height: 20px; }
-    .title-bar { font-size: 12px; margin-bottom: 6px; }
+    .brand { font-size: 15px; gap: 6px; }
+    .brand-icon { width: 18px; height: 18px; }
+    .title-bar { font-size: 12px; }
     /* 10.17: в альбоме телефон низкий — логотип ещё ниже. */
-    .film-logo { max-height: 30px; margin-bottom: 6px; }
-    .ver-badge { top: 2px; left: 8px; font-size: 9px; }
-    .source-chip { top: 2px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
+    .film-logo { max-height: 30px; }
+    .ver-badge { font-size: 9px; }
+    .source-chip { font-size: 10px; max-width: 30vw; }
+    .topbar { padding: 6px 10px; }
     .player-outer {
       max-height: calc(100vh - 150px);
       max-height: calc(100dvh - 150px);
@@ -1824,13 +1850,22 @@
 <body>
 <div class="page">
   <header class="topbar" id="topbar">
-    <span class="ver-badge" id="verBadge" title="Сборка плеера"></span>
+    <!-- 10.18: бренд «R·Films» — слева; в центре (той же высоты) — логотип
+         тайтла, а без него — название текстом. -->
     <div class="brand">
       <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
         <path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/>
       </svg>
       <span>R·Films</span>
+      <span class="ver-badge" id="verBadge" title="Сборка плеера"></span>
+    </div>
+
+    <div class="topbar-title">
+      <!-- 10.17: логотип тайтла из TMDB (`&logo=` с бота); при его отсутствии
+           показывается название округлым шрифтом. -->
+      <img class="film-logo hidden" id="filmLogo" alt="" decoding="async" referrerpolicy="no-referrer">
+      <div class="title-bar hidden" id="titleBar"></div>
     </div>
 
     <div class="source-chip hidden" id="sourceChip" title="Источник потока">
@@ -1841,12 +1876,6 @@
       </svg>
       <span id="sourceChipText"></span>
     </div>
-
-    <!-- 10.17: логотип тайтла из TMDB (`&logo=` с бота); при его отсутствии
-         ниже показывается название округлым шрифтом. -->
-    <img class="film-logo hidden" id="filmLogo" alt="" decoding="async" referrerpolicy="no-referrer">
-
-    <div class="title-bar hidden" id="titleBar"></div>
   </header>
 
   <div class="player-outer" id="playerOuter">
