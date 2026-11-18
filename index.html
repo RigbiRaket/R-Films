@@ -243,19 +243,42 @@
   .source-chip svg { width: 12px; height: 12px; flex-shrink: 0; }
   .source-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт его в ссылку). */
+  /* Шаг 1.1: заголовок тайтла из `&title=` (бот уже кладёт его в ссылку).
+     10.17: это запасной показ, когда логотипа нет — название округлым шрифтом
+     (шрифт подключается по мере нужды), максимум в две строки. */
   .title-bar {
     width: 100%;
     max-width: 900px;
     margin: 0 auto 14px;
     padding: 0 20px;
     text-align: center;
-    font-size: 15px;
-    font-weight: 600;
+    font-family: 'Nunito', ui-rounded, 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    max-height: 2.4em;
     color: var(--text);
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     overflow: hidden;
-    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Шаг 10.17: логотип тайтла в шапке (`&logo=` с бота), на месте названия.
+     Широкие логотипы TMDB (до ~9:1) вписываются по высоте, без обрезки. */
+  .film-logo {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(92%, 560px);
+    max-height: 58px;
+    margin: 0 auto 14px;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 
   /* ====== Player Wrapper ====== */
@@ -1653,6 +1676,9 @@
     .brand { font-size: 18px; padding: 8px 0 6px; gap: 8px; }
     .brand-icon { width: 22px; height: 22px; }
     .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 8px; }
+    /* 10.17: логотип на телефоне компактнее — шапка «липкая» и не должна
+       съедать высоту под видео. */
+    .film-logo { max-height: 40px; max-width: min(92%, 320px); margin-bottom: 8px; }
     .ver-badge { top: 3px; left: 8px; font-size: 9px; }
     .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
     .controls { padding: 0 10px 8px; }
@@ -1738,6 +1764,8 @@
     .brand { font-size: 17px; padding: 4px 0 2px; gap: 8px; }
     .brand-icon { width: 20px; height: 20px; }
     .title-bar { font-size: 12px; margin-bottom: 6px; }
+    /* 10.17: в альбоме телефон низкий — логотип ещё ниже. */
+    .film-logo { max-height: 30px; margin-bottom: 6px; }
     .ver-badge { top: 2px; left: 8px; font-size: 9px; }
     .source-chip { top: 2px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
     .player-outer {
@@ -1813,6 +1841,10 @@
       </svg>
       <span id="sourceChipText"></span>
     </div>
+
+    <!-- 10.17: логотип тайтла из TMDB (`&logo=` с бота); при его отсутствии
+         ниже показывается название округлым шрифтом. -->
+    <img class="film-logo hidden" id="filmLogo" alt="" decoding="async" referrerpolicy="no-referrer">
 
     <div class="title-bar hidden" id="titleBar"></div>
   </header>
@@ -2299,6 +2331,7 @@
   const lockBtn          = $('lockBtn');
   const downloadBtn      = $('downloadBtn');
   const titleBar         = $('titleBar');
+  const filmLogo         = $('filmLogo');
   const topbar           = $('topbar');
   const verBadge         = $('verBadge');
   const sourceChip       = $('sourceChip');
@@ -5048,6 +5081,31 @@
   //  Шаг 5.2–5.4: клавиатура серий/YouTube-паттерн и заголовок
   // ============================================================
   let pageTitleBase = '';  // только название тайтла (без провайдера/озвучки и без S/E)
+  // 10.17: логотип тайтла (`&logo=` с бота). Показываем его вместо названия;
+  // если логотипа нет или картинка не загрузилась — название округлым шрифтом.
+  let filmLogoUrl = '';
+  let logoBroken = false;
+  let roundedFontLoaded = false;
+  // Округлый шрифт (Nunito) подключаем лениво — только когда он реально нужен
+  // (логотипа нет). Если сети нет — остаётся запасной системный стек.
+  function ensureRoundedFont() {
+    if (roundedFontLoaded) return;
+    roundedFontLoaded = true;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap';
+    document.head.appendChild(link);
+  }
+  // Считаем допустимой только картинку TMDB (защита от подстановки чужого URL).
+  function isFilmLogoUrl(value) {
+    return /^https:\/\/image\.tmdb\.org\/t\/p\/[\w.\/-]+$/.test(value || '');
+  }
+  // Картинка не загрузилась — тихо откатываемся на название текстом.
+  filmLogo.addEventListener('error', () => {
+    logoBroken = true;
+    filmLogo.classList.add('hidden');
+    if (titleBar.textContent) { titleBar.classList.remove('hidden'); ensureRoundedFont(); }
+  });
   // Бот кладёт в `title` «Название — Провайдер [— Озвучка] [— S1E1]». Для шапки
   // берём только первое звено (само название) — плеер/озвучку не показываем.
   function parseBotTitle(raw) {
@@ -5063,11 +5121,22 @@
     return { base: base || text, sea, epi };
   }
   function applyTitle(text) {
-    if (!text) return;
-    document.title = text + ' — R·Films';
-    titleBar.textContent = text;
-    titleBar.classList.remove('hidden');
-    updateMediaSessionMetadata(text);   // Шаг 6.1: то же название на локскрине/в шторке
+    if (text) {
+      document.title = text + ' — R·Films';
+      titleBar.textContent = text;
+      filmLogo.alt = text;
+      updateMediaSessionMetadata(text);   // Шаг 6.1: то же название на локскрине/в шторке
+    }
+    // 10.17: пока есть живой логотип — показываем его, текст держим скрытым
+    // (он остаётся и для Media Session, и как запасной показ).
+    if (filmLogoUrl && !logoBroken) {
+      if (filmLogo.getAttribute('src') !== filmLogoUrl) filmLogo.src = filmLogoUrl;
+      filmLogo.classList.remove('hidden');
+      titleBar.classList.add('hidden');
+      return;
+    }
+    filmLogo.classList.add('hidden');
+    if (titleBar.textContent) { titleBar.classList.remove('hidden'); ensureRoundedFont(); }
   }
   // Шаг 5.4: при переключении серии внутри плеера обновляем шапку —
   // «Название — N сезон, M серия — Название серии».
@@ -5356,6 +5425,10 @@
     const fallback = params.get('fallback');
     if (audio) audioNames = audio.split('|');
     if (fallback) fallbackUrl = fallback;  // запасной iframe источника (§13)
+    // 10.17: `&logo=` — ссылка на логотип тайтла (её положил бот). Рисуем в шапке
+    // вместо названия; нет параметра или картинки — название покажется текстом.
+    const logoParam = (params.get('logo') || '').trim();
+    if (isFilmLogoUrl(logoParam)) filmLogoUrl = logoParam;
     // Шаг 1.1: заголовок тайтла из `&title=` (бот кладёт «Название — Провайдер [— Озвучка]»).
     // 8.x-fix: в шапке оставляем только само название; провайдер/озвучку не показываем,
     // а сезон/серию рисуем по-русски («1 сезон, 1 серия») — см. `updateTitleForEpisode`.
@@ -5402,6 +5475,7 @@
     if (curSeason == null && titleSeason) curSeason = titleSeason;
     if (curEpisode == null && titleEpisode) curEpisode = titleEpisode;
     if (pageTitleBase) updateTitleForEpisode();
+    else applyTitle('');   // 10.17: без названия всё равно показываем логотип
     if (embed) {
       manualUrlInput.value = embed;
       copyInputBtn.classList.remove('hidden');
