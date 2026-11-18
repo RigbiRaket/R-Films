@@ -602,27 +602,31 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ====== Big Play (Шаг 3.1: автоплей в WebView заблокирован) ====== */
+  /* 10.12: вместо зелёного круга с чёрным «пуском» — белый «пуск» с зелёным
+     свечением (то же свечение у пуска/паузы в строке и в центре). */
   .big-play {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 84px;
-    height: 84px;
+    width: 96px;
+    height: 96px;
     border: none;
     border-radius: 50%;
-    background: rgba(57, 255, 20, 0.92);
-    color: #000;
+    background: transparent;
+    color: #fff;
     display: grid;
     place-items: center;
     cursor: pointer;
     z-index: 35;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.8)) drop-shadow(0 0 18px rgba(57, 255, 20, 0.5));
     transition: filter 0.15s, transform 0.15s;
     animation: big-play-in 0.18s ease-out;
   }
-  .big-play svg { width: 40px; height: 40px; margin-left: 4px; }
-  .big-play:hover { filter: brightness(1.08); }
+  .big-play svg { width: 62px; height: 62px; margin-left: 6px; }
+  .big-play:hover {
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.8)) drop-shadow(0 0 26px rgba(57, 255, 20, 0.8));
+  }
   .big-play:active { transform: translate(-50%, -50%) scale(0.95); }
   @keyframes big-play-in {
     from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
@@ -651,7 +655,7 @@
     width: 52px;
     height: 52px;
     color: #fff;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85));
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 16px rgba(57, 255, 20, 0.45));
   }
   /* 10.5-fix: при открытых настройках центральная иконка не висит поверх панели. */
   .player-container.embed-mode .center-status,
@@ -861,17 +865,25 @@
     bottom: 0;
     left: 0;
     right: 0;
-    /* 10.11: нижний отступ уменьшен — весь блок управления (и полоса в нём)
-       сидит чуть ниже, ближе к краю. Полоса по-прежнему НАД кнопками. */
-    padding: 0 20px 12px;
+    /* 10.12: блок управления ещё ниже: меньше отступ снизу, меньше зазор и
+       кнопки. Порядок детей: `.seek-block` (хронометраж слева + полоса) →
+       `.ctrl-row` (кнопки). Полоса по-прежнему над кнопками. */
+    padding: 0 20px 6px;
     background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
     z-index: 20;
+  }
+  /* 10.12: полоса перемотки и хронометраж — один блок; время слева НАД полосой. */
+  .seek-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
   }
   .player-container.controls-visible .controls,
   .player-container.paused .controls {
@@ -884,19 +896,19 @@
   }
 
   /* 10.11: два «этапа» появления интерфейса мышью. Мышь ведёт по плееру вдали
-     от полосы — показываем только полосу перемотки и хронометраж (`peek`);
+     от полосы — показываем только хронометраж и полосу перемотки (`peek`);
      мышь опускается в нижние 30% — снова все кнопки, как раньше (полоса над
      кнопками). Кнопки из потока не убираем (гасим через opacity) — строка не
-     «дёргается». В `peek` полоса и строка меняются местами сдвигом (`transform`):
-     полоса «поднимается» обратно над кнопками, когда мышь подходит к низу.
-     Сдвиг считает JS (`--peek-*`) по фактическим высотам. Только для устройств с
-     курсором: на тач `peek` не ставится. */
+     «дёргается». В `peek` блок «время + полоса» и строка кнопок меняются
+     местами сдвигом (`transform`): блок «поднимается» обратно над кнопками,
+     когда мышь подходит к низу. Сдвиг считает JS (`--peek-*`) по фактическим
+     высотам. Только для устройств с курсором: на тач `peek` не ставится. */
   .ctrl-row > .ctrl-btn,
   .ctrl-row > .volume-wrap,
   .ctrl-row > .spacer,
   .player-container .lock-btn,
   .player-container .dl-btn { transition: opacity 0.18s ease; }
-  .controls > .progress-wrapper,
+  .controls > .seek-block,
   .controls > .ctrl-row { transition: transform 0.22s ease; }
   .player-container.peek .ctrl-row > .ctrl-btn,
   .player-container.peek .ctrl-row > .volume-wrap,
@@ -906,12 +918,18 @@
     opacity: 0 !important;
     pointer-events: none;
   }
-  .player-container.peek .controls > .progress-wrapper {
+  .player-container.peek .controls > .seek-block {
     transform: translateY(var(--peek-bar-shift, 0px));
   }
   .player-container.peek .controls > .ctrl-row {
     transform: translateY(var(--peek-row-shift, 0px));
   }
+  /* 10.12: курсор «исчезает с экрана», когда интерфейс спрятан при просмотре
+     (в полноэкранном режиме и в театре тоже). Появляется на любое движение. */
+  .player-container.cursor-hidden,
+  .player-container.cursor-hidden *,
+  .player-container.locked,
+  .player-container.locked * { cursor: none !important; }
 
   /* Progress Bar */
   .progress-wrapper {
@@ -992,13 +1010,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    /* 10.12: кнопки ещё чуть меньше — строка ниже, полоса перемотки ближе к краю. */
+    width: 38px;
+    height: 38px;
     border: none;
     background: transparent;
     color: #fff;
     cursor: pointer;
-    border-radius: 10px;
+    border-radius: 9px;
     padding: 0;
     transition: background 0.15s, color 0.15s;
     flex-shrink: 0;
@@ -1012,22 +1031,29 @@
   .ctrl-btn.active,
   .ctrl-btn.active:hover,
   .ctrl-btn.active:active { color: #000; background: var(--accent); }
-  /* 10.11: значки чуть меньше, чтобы ритм кнопок был ровнее (см. `.ctrl-row`). */
-  .ctrl-btn svg { width: 22px; height: 22px; }
+  /* 10.12: значки ещё чуть меньше (кнопки ниже и уже). */
+  .ctrl-btn svg { width: 20px; height: 20px; }
   /* 10.11: кнопка «пуск» — та же ширина, что и у соседей, иначе расстояние
-     между значками слева получается неровным. Значок чуть крупнее прочих. */
-  .play-btn { width: 42px; height: 42px; }
-  .play-btn svg { width: 25px; height: 25px; }
+     между значками слева получается неровным. Значок чуть крупнее прочих.
+     10.12: «пуск/пауза» — белые с зелёным свечением (как большая кнопка). */
+  .play-btn { width: 38px; height: 38px; }
+  .play-btn svg {
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 0 7px rgba(57, 255, 20, 0.55));
+  }
 
   .skip-btn { position: relative; }
-  .skip-btn svg { width: 24px; height: 24px; }
+  .skip-btn svg { width: 21px; height: 21px; }
+  /* 10.12: тело стрелки — точки (dasharray), головка — уголок, как в «Серии». */
+  .skip-btn .skip-tail { stroke-dasharray: 0.1 5.4; stroke-width: 2.3; }
   .skip-label {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     line-height: 1;             /* цифра ровно по центру кружка (8.x-fix) */
     pointer-events: none;
@@ -1038,27 +1064,33 @@
   .ep-nav { display: inline-flex; align-items: center; gap: 4px; }
   .ctrl-btn.ep-nav-btn {
     width: auto;
-    min-width: 42px;
-    padding: 0 8px;
+    min-width: 38px;
+    padding: 0 6px;
     gap: 2px;
     color: rgba(255,255,255,0.92);
   }
   /* 8.x-fix: вместо слова «Серия» — точка (как в меню настроек) и стрелка. */
-  .ctrl-btn.ep-nav-btn .ep-nav-dot { width: 8px; height: 8px; color: var(--accent); }
-  .ctrl-btn.ep-nav-btn .ep-nav-chevron { width: 15px; height: 15px; }
+  .ctrl-btn.ep-nav-btn .ep-nav-dot { width: 7px; height: 7px; color: var(--accent); }
+  .ctrl-btn.ep-nav-btn .ep-nav-chevron { width: 14px; height: 14px; }
   .ctrl-btn.ep-nav-btn:disabled {
     opacity: 0.35;
     cursor: default;
     background: transparent;
     color: #fff;
   }
+  /* 10.12: цветные акценты в значках (зелёный — «акцент» плеера):
+     центр «шестерёнки» настроек, квадратик PiP и средние штрихи «театра». */
+  #settingsBtn svg .g-center { fill: var(--accent); stroke: none; }
+  .pip-square { fill: var(--accent); }
+  .th-accent { stroke: var(--accent); }
 
+  /* 10.12: хронометраж переехал из строки кнопок наверх — слева над полосой. */
   .time-display {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: rgba(255,255,255,0.9);
     font-variant-numeric: tabular-nums;
-    padding: 0 10px;
+    padding: 0 0 0 2px;
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
@@ -1071,13 +1103,13 @@
   .spacer { flex: 1; }
 
   /* Volume */
-  /* 10.11: отступы такие же, как в `.ctrl-row` (6), плюс поля у ползунка —
-     чтобы расстояние между значком звука, ползунком и настройками было ровным. */
+  /* 10.12: значок звука и ползунок — ближе друг к другу (3 px), чем кнопки
+     между собой (6 px). На ПК ползунок выдвигается только при наведении. */
   .volume-wrap {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
   }
   .volume-slider {
     width: 72px;
@@ -1088,7 +1120,7 @@
     border-radius: 2px;
     outline: none;
     cursor: pointer;
-    margin: 0 10px;
+    margin: 0 6px 0 0;
     position: relative;
   }
   .volume-slider::-webkit-slider-thumb {
@@ -1121,11 +1153,48 @@
     backdrop-filter: blur(8px);
   }
   .volume-tooltip.visible { opacity: 1; }
-  /* 10.11: усиление (>100%) — дорожка, кружок, значок и подсказка подкрашиваются. */
+  /* 10.11: усиление (>100%) — дорожка, кружок и подсказка подкрашиваются.
+     10.12: значок громкости не красим целиком — зелёными становятся только
+     «усилительные» дуги (см. `.vol-boost`). */
   .volume-wrap.boosted .volume-slider { background: rgba(57, 255, 20, 0.35); }
   .volume-wrap.boosted .volume-slider::-webkit-slider-thumb { background: var(--accent); }
-  .volume-wrap.boosted #muteBtn { color: var(--accent); }
   .volume-wrap.boosted .volume-tooltip { border-color: var(--accent); }
+  /* 10.12: дуги громкости. Три белые — уровень 30/60/90%, две зелёные —
+     усиление 150/190%. Показываем по одной, нарастая. */
+  .icon-vol { overflow: visible; }
+  .icon-vol .vol-arc,
+  .icon-vol .vol-boost { opacity: 0; transition: opacity 0.15s ease; }
+  .icon-vol .vol-arc.on,
+  .icon-vol .vol-boost.on { opacity: 1; }
+  .icon-vol .vol-boost { stroke: var(--accent); }
+  /* 10.12: на ПК (есть курсор) в строке стоит только значок; место под ползунок
+     зарезервировано справа (строка не сдвигается), сам ползунок выезжает при
+     наведении на значок и живёт, пока указатель внутри блока громкости. */
+  @media (hover: hover) and (pointer: fine) {
+    .volume-wrap {
+      width: 112px;
+      justify-content: flex-start;
+    }
+    .volume-slider {
+      position: absolute;
+      /* 4 px от края значка — ближе, чем расстояние между кнопками (6 px). */
+      left: 42px;
+      top: 50%;
+      width: 70px;
+      margin: 0;
+      transform: translate(-6px, -50%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.18s ease;
+      z-index: 3;
+    }
+    .volume-wrap.vol-open .volume-slider,
+    .volume-wrap:has(:focus-visible) .volume-slider {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(0, -50%);
+    }
+  }
 
   /* Settings Panel */
   .settings-panel {
@@ -1652,10 +1721,10 @@
     .lock-btn, .dl-btn { width: 44px; height: 44px; }
     .lock-btn svg { width: 20px; height: 20px; }
     .settings-options button { padding: 9px 14px; }
-    /* Шаг 7.1-fix: тап-зоны нижней строки ≥42px. */
-    .ctrl-row .ctrl-btn { width: 42px; height: 42px; }
-    .ctrl-row .play-btn { width: 46px; height: 46px; }
-    .ctrl-row .ctrl-btn.ep-nav-btn { min-width: 42px; padding: 0 8px; }
+    /* Шаг 7.1-fix: тап-зоны нижней строки ≥40px (10.12: чуть компактнее). */
+    .ctrl-row .ctrl-btn { width: 40px; height: 40px; }
+    .ctrl-row .play-btn { width: 42px; height: 42px; }
+    .ctrl-row .ctrl-btn.ep-nav-btn { min-width: 40px; padding: 0 7px; }
     .volume-slider { height: 6px; }
     .volume-slider::-webkit-slider-thumb { width: 16px; height: 16px; }
   }
@@ -1843,13 +1912,21 @@
       </div>
 
       <div class="controls" id="controls">
-        <div class="progress-wrapper" id="progressWrapper">
-          <div class="progress-bg">
-            <div class="progress-buffer" id="progressBuffer"></div>
-            <div class="progress-fill" id="progressFill"></div>
+        <!-- 10.12: хронометраж — слева НАД полосой перемотки. -->
+        <div class="seek-block" id="seekBlock">
+          <div class="time-display" id="timeDisplay">
+            <span id="timeCurrent">0:00</span>
+            <span class="time-sep">/</span>
+            <span id="timeTotal">0:00</span>
           </div>
-          <div class="progress-thumb" id="progressThumb"></div>
-          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
+          <div class="progress-wrapper" id="progressWrapper">
+            <div class="progress-bg">
+              <div class="progress-buffer" id="progressBuffer"></div>
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-thumb" id="progressThumb"></div>
+            <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
+          </div>
         </div>
 
         <div class="ctrl-row">
@@ -1857,8 +1934,8 @@
           <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14.5 7 9.5 12 14.5 17"/></svg></button>
           <button class="ctrl-btn skip-btn" id="skipBackBtn" title="Назад (J)" aria-label="Назад на 10 секунд">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
+              <path class="skip-tail" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <polyline class="skip-head" points="7.4 2.6 2.8 2.6 2.8 7.2"/>
             </svg>
             <span class="skip-label" id="skipBackLabel">10</span>
           </button>
@@ -1872,17 +1949,12 @@
           </button>
           <button class="ctrl-btn skip-btn" id="skipFwdBtn" title="Вперёд (L)" aria-label="Вперёд на 10 секунд">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
+              <path class="skip-tail" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <polyline class="skip-head" points="7.4 2.6 2.8 2.6 2.8 7.2"/>
             </svg>
             <span class="skip-label" id="skipFwdLabel">10</span>
           </button>
           <button class="ctrl-btn ep-nav-btn hidden" id="nextEpBtn" title="Следующая серия (Shift+→ / N)" aria-label="Следующая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9.5 7 14.5 12 9.5 17"/></svg></button>
-          <div class="time-display" id="timeDisplay">
-            <span id="timeCurrent">0:00</span>
-            <span class="time-sep">/</span>
-            <span id="timeTotal">0:00</span>
-          </div>
           <div class="spacer"></div>
           <!-- 9.7b: дискета — «Сохранить позицию в бот». Видна только для
                ссылок из бота и только в режиме своего <video>; в правом трее
@@ -1896,13 +1968,17 @@
           </button>
           <div class="volume-wrap" id="volumeWrap">
             <button class="ctrl-btn" id="muteBtn" title="Звук (M)" aria-label="Выключить звук" aria-pressed="false">
+              <!-- 10.12: дуги по уровню: 30/60/90% — белые, 150/190% — зелёные. -->
               <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
-                <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-                <path d="M19 5a10 10 0 0 1 0 14"/>
+                <path d="M8 4.6 4.4 7.7 1.4 7.7 1.4 16.3 4.4 16.3 8 19.4Z" fill="currentColor" stroke="none"/>
+                <path class="vol-arc" d="M11.25 8.75a4.6 4.6 0 0 1 0 6.51"/>
+                <path class="vol-arc" d="M13.23 6.77a7.4 7.4 0 0 1 0 10.46"/>
+                <path class="vol-arc" d="M15.21 4.79a10.2 10.2 0 0 1 0 14.42"/>
+                <path class="vol-boost" d="M17.19 2.81a13 13 0 0 1 0 18.38"/>
+                <path class="vol-boost" d="M19.17 0.83a15.8 15.8 0 0 1 0 22.34"/>
               </svg>
               <svg class="icon-mute hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+                <path d="M8 4.6 4.4 7.7 1.4 7.7 1.4 16.3 4.4 16.3 8 19.4Z" fill="currentColor" stroke="none"/>
                 <line x1="23" y1="9" x2="17" y2="15"/>
                 <line x1="17" y1="9" x2="23" y2="15"/>
               </svg>
@@ -1912,8 +1988,34 @@
           </div>
           <button class="ctrl-btn" id="settingsBtn" title="Настройки" aria-label="Настройки" aria-expanded="false" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
+              <circle class="g-center" cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+          <!-- Шаг 6.2: картинка-в-картинке (PiP). 10.12: квадратик — зелёный. -->
+          <button class="ctrl-btn hidden" id="pipBtn" title="Картинка в картинке (I)" aria-label="Картинка в картинке" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <rect class="pip-square" x="11.5" y="11.5" width="9" height="6.5" rx="1.2" stroke="none"/>
+            </svg>
+          </button>
+          <!-- Шаг 7.4: режим «Театр/Фокус» — прячем всё, кроме видео.
+               10.12: средние штрихи рамки (справа/слева/снизу/сверху) — зелёные. -->
+          <button class="ctrl-btn" id="theaterBtn" title="Театр/Фокус (T)" aria-label="Режим театра" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6.5" y="7.5" width="11" height="9" rx="1"/>
+              <line x1="4" y1="3.4" x2="6.6" y2="3.4"/>
+              <line class="th-accent" x1="9.9" y1="3.4" x2="14.1" y2="3.4"/>
+              <line x1="17.4" y1="3.4" x2="20" y2="3.4"/>
+              <line x1="4" y1="20.6" x2="6.6" y2="20.6"/>
+              <line class="th-accent" x1="9.9" y1="20.6" x2="14.1" y2="20.6"/>
+              <line x1="17.4" y1="20.6" x2="20" y2="20.6"/>
+              <line x1="3.4" y1="4" x2="3.4" y2="6.6"/>
+              <line class="th-accent" x1="3.4" y1="9.9" x2="3.4" y2="14.1"/>
+              <line x1="3.4" y1="17.4" x2="3.4" y2="20"/>
+              <line x1="20.6" y1="4" x2="20.6" y2="6.6"/>
+              <line class="th-accent" x1="20.6" y1="9.9" x2="20.6" y2="14.1"/>
+              <line x1="20.6" y1="17.4" x2="20.6" y2="20"/>
             </svg>
           </button>
           <button class="ctrl-btn" id="fullscreenBtn" title="На весь экран (F)" aria-label="На весь экран" aria-pressed="false">
@@ -1928,20 +2030,6 @@
               <path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
               <path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
               <path d="M3 16h3a2 2 0 0 1 2 2v3"/>
-            </svg>
-          </button>
-          <!-- Шаг 6.2: картинка-в-картинке (PiP). -->
-          <button class="ctrl-btn hidden" id="pipBtn" title="Картинка в картинке (I)" aria-label="Картинка в картинке" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <rect x="11.5" y="11.5" width="9" height="6.5" rx="1.2" fill="currentColor" stroke="none"/>
-            </svg>
-          </button>
-          <!-- Шаг 7.4: режим «Театр/Фокус» — прячем всё, кроме видео. -->
-          <button class="ctrl-btn" id="theaterBtn" title="Театр/Фокус (T)" aria-label="Режим театра" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="18" rx="2" stroke-dasharray="3 3"/>
-              <rect x="6" y="7" width="12" height="10" rx="1"/>
             </svg>
           </button>
         </div>
@@ -2197,6 +2285,7 @@
   const autoNextToggle   = $('autoNextToggle');
   const controlsEl       = $('controls');
   const progressWrapper  = $('progressWrapper');
+  const seekBlockEl      = $('seekBlock');                          // 10.12
   const ctrlRowEl        = controlsEl.querySelector('.ctrl-row');   // 10.11
   const progressBuffer   = $('progressBuffer');
   const progressFill     = $('progressFill');
@@ -2441,11 +2530,17 @@
   // ============================================================
   //  Controls Visibility
   // ============================================================
+  // 10.12: курсор мыши «исчезает с экрана» вместе с интерфейсом — при просмотре
+  // в полноэкранном режиме/театре он больше не висит поверх видео. Любое
+  // движение мыши возвращает и курсор, и интерфейс.
+  function hideCursor() { playerContainer.classList.add('cursor-hidden'); }
+  function showCursor() { playerContainer.classList.remove('cursor-hidden'); }
   function showControls() {
     if (isLocked || playerContainer.classList.contains('embed-mode')) return;
     // 10.11: интерфейс показан, а указатель вне плеера — «заглядывание» не держим
     // (иначе после паузы или старта остаётся «только хронометраж»).
     if (!pointerInPlayer) clearPeek();
+    showCursor();
     playerContainer.classList.add('controls-visible');
     // 10.6-fix: активный «Театр/Фокус» подсвечивается надёжно — состояние кнопки
     // переустанавливаем при каждом показе интерфейса (иконка теперь ещё и с
@@ -2457,6 +2552,7 @@
         if (!settingsOpen && !pointerDown) {
           clearPeek();   // 10.11: интерфейс ушёл — «заглядывание» тоже сбрасываем
           playerContainer.classList.remove('controls-visible');
+          hideCursor();  // 10.12: и курсор убираем с экрана
         }
       }, 2500);
     }
@@ -2466,6 +2562,7 @@
     if (!nativeVideo.paused && !settingsOpen && !pointerDown) {
       clearPeek();   // 10.11
       playerContainer.classList.remove('controls-visible');
+      hideCursor();  // 10.12
     }
   }
   function updatePausedClass() {
@@ -2473,6 +2570,7 @@
     // 10.11: пауза показывает интерфейс; если указатель вне плеера — показываем
     // его целиком, а не «огрызок» из полосы и хронометража.
     if (!pointerInPlayer) clearPeek();
+    if (nativeVideo.paused) showCursor();   // 10.12: на паузе курсор всегда виден
     if (!nativeVideo.paused) showControls();
   }
   nativeVideo.addEventListener('play', updatePausedClass);
@@ -2485,12 +2583,13 @@
   let finePointerMQ = null;
   try { finePointerMQ = window.matchMedia('(hover: hover) and (pointer: fine)'); }
   catch (e) { finePointerMQ = null; }
-  // В `peek` полоса и строка кнопок меняются местами сдвигом: считаем сдвиг по
-  // фактическим высотам (на разной ширине кнопки разной высоты) и кладём в CSS.
+  // В `peek` блок «время + полоса» и строка кнопок меняются местами сдвигом:
+  // считаем сдвиг по фактическим высотам (на разной ширине кнопки разной
+  // высоты) и кладём в CSS.
   function syncPeekShift() {
-    if (!controlsEl || !progressWrapper || !ctrlRowEl) return;
+    if (!controlsEl || !seekBlockEl || !ctrlRowEl) return;
     const gap = parseFloat(getComputedStyle(controlsEl).rowGap) || 0;
-    const barH = progressWrapper.offsetHeight;
+    const barH = seekBlockEl.offsetHeight;   // 10.12: вместе с хронометражем
     const rowH = ctrlRowEl.offsetHeight;
     controlsEl.style.setProperty('--peek-bar-shift', (rowH + gap) + 'px');
     controlsEl.style.setProperty('--peek-row-shift', (-(barH + gap)) + 'px');
@@ -2844,6 +2943,14 @@
     const muted = v === 0;
     iconVol.classList.toggle('hidden', muted);
     iconMute.classList.toggle('hidden', !muted);
+    // 10.12: дуги по уровню — три белые (30/60/90%) и две зелёные (150/190%).
+    const pct = Math.round(v * 100);
+    const arcs = pct >= 90 ? 3 : pct >= 60 ? 2 : pct >= 30 ? 1 : 0;
+    const boost = pct >= 190 ? 2 : pct >= 150 ? 1 : 0;
+    const arcNodes = iconVol.querySelectorAll('.vol-arc');
+    const boostNodes = iconVol.querySelectorAll('.vol-boost');
+    for (let i = 0; i < arcNodes.length; i++) arcNodes[i].classList.toggle('on', i < arcs);
+    for (let i = 0; i < boostNodes.length; i++) boostNodes[i].classList.toggle('on', i < boost);
     // Шаг 8.1/8.5: имя и состояние кнопки звука для скринридера.
     muteBtn.setAttribute('aria-label', muted ? 'Включить звук' : 'Выключить звук');
     muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
@@ -2931,6 +3038,11 @@
     setTimeout(() => volumeTooltip.classList.remove('visible'), 1000);
     saveSettings();
   });
+  // 10.12: на ПК ползунок выезжает, когда указатель на значке, и живёт, пока он
+  // внутри блока громкости (иначе нельзя перевести курсор на сам ползунок).
+  // Проход мимо (к настройкам) ползунок не открывает.
+  muteBtn.addEventListener('mouseenter', () => $('volumeWrap').classList.add('vol-open'));
+  $('volumeWrap').addEventListener('mouseleave', () => $('volumeWrap').classList.remove('vol-open'));
   // Громкость элемента всегда ≤ 1; уровень усиления (`volumeLevel`) не сбрасываем.
   nativeVideo.addEventListener('volumechange', () => {
     if (!nativeVideo.muted && !gainNode && volumeLevel <= 1 &&
@@ -3951,7 +4063,7 @@
       playerFrame.classList.remove('hidden');
       setLoading(false);
       hideCenterStatus();
-      playerContainer.classList.remove('controls-visible', 'paused', 'locked');
+      playerContainer.classList.remove('controls-visible', 'paused', 'locked', 'peek', 'cursor-hidden');
       if (settingsOpen) toggleSettings(false);
     }
     updatePipButton();   // Шаг 6.2: PiP доступен только для своего <video>
