@@ -845,14 +845,15 @@
   .player-container.locked .gesture-hint,
   .player-container.embed-mode .gesture-hint { display: none !important; }
 
-  /* 10.9: раздел «Жесты» в настройках — список с глифами в том же стиле. */
-  .gestures-list { display: flex; flex-direction: column; gap: 4px; padding: 2px 4px; }
+  /* 10.9: раздел «Жесты» в настройках — список с глифами в том же стиле.
+     10.11: строки чуть плотнее — раздел влезает без прокрутки и на ПК. */
+  .gestures-list { display: flex; flex-direction: column; gap: 3px; padding: 2px 4px; }
   .g-row { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.2; color: var(--text); }
   .g-glyph { width: 19px; height: 19px; flex-shrink: 0; color: rgba(255, 255, 255, 0.85); }
   .g-glyph .g-dot { fill: var(--accent); }
   /* на активной (зелёной) иконке точка сливается — делаем её тёмной */
   .settings-grid button.active svg .g-dot { fill: currentColor; }
-  .gestures-replay { margin-top: 6px; }
+  .gestures-replay { margin-top: 4px; }
 
   /* ====== Controls ====== */
   .controls {
@@ -860,7 +861,9 @@
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 0 20px 20px;
+    /* 10.11: нижний отступ уменьшен — полоса перемотки переехала ПОД кнопки
+       (она теперь последний элемент) и сидит у самого низа. */
+    padding: 0 20px 12px;
     background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
     display: flex;
     flex-direction: column;
@@ -880,6 +883,25 @@
     pointer-events: none !important;
   }
 
+  /* 10.11: два «этапа» появления интерфейса мышью. Мышь ведёт по плееру вдали
+     от полосы — показываем только полосу перемотки и хронометраж (класс `peek`);
+     мышь опускается в нижние 30% — снова все кнопки. Кнопки не убираем из
+     потока (гасим через opacity) — строка не «дёргается», полоса стоит на месте.
+     Только для устройств с курсором: на тач `peek` не ставится. */
+  .ctrl-row > .ctrl-btn,
+  .ctrl-row > .volume-wrap,
+  .ctrl-row > .spacer,
+  .player-container .lock-btn,
+  .player-container .dl-btn { transition: opacity 0.18s ease; }
+  .player-container.peek .ctrl-row > .ctrl-btn,
+  .player-container.peek .ctrl-row > .volume-wrap,
+  .player-container.peek .ctrl-row > .spacer,
+  .player-container.peek .lock-btn,
+  .player-container.peek .dl-btn {
+    opacity: 0 !important;
+    pointer-events: none;
+  }
+
   /* Progress Bar */
   .progress-wrapper {
     position: relative;
@@ -887,7 +909,7 @@
     display: flex;
     align-items: center;
     cursor: pointer;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     /* 8.x-fix: перетаскивание полосы не скроллит страницу на тач. */
     touch-action: none;
   }
@@ -979,12 +1001,15 @@
   .ctrl-btn.active,
   .ctrl-btn.active:hover,
   .ctrl-btn.active:active { color: #000; background: var(--accent); }
-  .ctrl-btn svg { width: 24px; height: 24px; }
-  .play-btn { width: 46px; height: 46px; }
-  .play-btn svg { width: 28px; height: 28px; }
+  /* 10.11: значки чуть меньше, чтобы ритм кнопок был ровнее (см. `.ctrl-row`). */
+  .ctrl-btn svg { width: 22px; height: 22px; }
+  /* 10.11: кнопка «пуск» — та же ширина, что и у соседей, иначе расстояние
+     между значками слева получается неровным. Значок чуть крупнее прочих. */
+  .play-btn { width: 42px; height: 42px; }
+  .play-btn svg { width: 25px; height: 25px; }
 
   .skip-btn { position: relative; }
-  .skip-btn svg { width: 26px; height: 26px; }
+  .skip-btn svg { width: 24px; height: 24px; }
   .skip-label {
     position: absolute;
     inset: 0;
@@ -1002,7 +1027,7 @@
   .ep-nav { display: inline-flex; align-items: center; gap: 4px; }
   .ctrl-btn.ep-nav-btn {
     width: auto;
-    min-width: 40px;
+    min-width: 42px;
     padding: 0 8px;
     gap: 2px;
     color: rgba(255,255,255,0.92);
@@ -1035,11 +1060,13 @@
   .spacer { flex: 1; }
 
   /* Volume */
+  /* 10.11: отступы такие же, как в `.ctrl-row` (6), плюс поля у ползунка —
+     чтобы расстояние между значком звука, ползунком и настройками было ровным. */
   .volume-wrap {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
   .volume-slider {
     width: 72px;
@@ -1050,7 +1077,7 @@
     border-radius: 2px;
     outline: none;
     cursor: pointer;
-    margin: 0;
+    margin: 0 10px;
     position: relative;
   }
   .volume-slider::-webkit-slider-thumb {
@@ -1083,6 +1110,11 @@
     backdrop-filter: blur(8px);
   }
   .volume-tooltip.visible { opacity: 1; }
+  /* 10.11: усиление (>100%) — дорожка, кружок, значок и подсказка подкрашиваются. */
+  .volume-wrap.boosted .volume-slider { background: rgba(57, 255, 20, 0.35); }
+  .volume-wrap.boosted .volume-slider::-webkit-slider-thumb { background: var(--accent); }
+  .volume-wrap.boosted #muteBtn { color: var(--accent); }
+  .volume-wrap.boosted .volume-tooltip { border-color: var(--accent); }
 
   /* Settings Panel */
   .settings-panel {
@@ -1231,7 +1263,7 @@
   }
   .settings-grid button:hover { background: rgba(255,255,255,0.12); color: var(--accent); }
   .settings-grid button.active { background: var(--accent); color: #000; }
-  .settings-grid button svg { width: 20px; height: 20px; }
+  .settings-grid button svg { width: 19px; height: 19px; }
   .settings-grid button svg text { font-family: inherit; }
   .settings-body {
     margin-top: 4px;
@@ -1257,6 +1289,29 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+  /* 10.11: колесо прокрутки в разделах настроек — тонкое и неброское.
+     На устройствах с курсором (ПК) оно не нужно вовсе — всё влезает, а кто
+     не влезает, прокручивается колесом; полосу убираем совсем. */
+  .settings-body .settings-section,
+  #seasonOptions {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  }
+  .settings-body .settings-section::-webkit-scrollbar { width: 6px; height: 6px; }
+  #seasonOptions::-webkit-scrollbar { height: 6px; }
+  .settings-body .settings-section::-webkit-scrollbar-track,
+  #seasonOptions::-webkit-scrollbar-track { background: transparent; }
+  .settings-body .settings-section::-webkit-scrollbar-thumb,
+  #seasonOptions::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 3px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .settings-body .settings-section,
+    #seasonOptions { scrollbar-width: none; }
+    .settings-body .settings-section::-webkit-scrollbar,
+    #seasonOptions::-webkit-scrollbar { display: none; }
   }
   /* 8.x-fix: сезоны и серии — сезоны компактной лентой сверху (остаётся на
      месте), серии прокручиваются под ней. Сезонов может быть много, а меняются
@@ -1480,7 +1535,7 @@
     .title-bar { font-size: 13px; padding: 0 10px; margin-bottom: 8px; }
     .ver-badge { top: 3px; left: 8px; font-size: 9px; }
     .source-chip { top: 3px; right: 8px; font-size: 10px; max-width: calc(50% - 72px); }
-    .controls { padding: 0 10px 10px; }
+    .controls { padding: 0 10px 8px; }
     /* Шаг 7.1-fix: нижняя строка — ВСЕГДА одна линия (без переноса): правый
        кластер остаётся справа, а не уезжает вниз. На узком экране время — только
        текущее, кнопки серий — точка со стрелкой, ±10 уступают переключателю серий, а
@@ -1611,9 +1666,11 @@
   /* Шаг 8.2: видимый фокус при навигации с клавиатуры (мышь/тап не трогаем).
      `button { outline:none }` перебивается псевдоклассом (специфичность выше). */
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  /* Ползунки тонкие — подсвечиваем всю обёртку, когда фокус внутри. */
-  .progress-wrapper:focus-within,
-  .volume-wrap:focus-within { box-shadow: 0 0 0 2px var(--accent); border-radius: 4px; }
+  /* Ползунки тонкие — подсвечиваем всю обёртку, когда фокус внутри.
+     10.11: только при навигации с клавиатуры (`:focus-visible`) — при клике
+     мышью на ПК рамка вокруг громкости/полосы больше не загорается. */
+  .progress-wrapper:has(:focus-visible),
+  .volume-wrap:has(:focus-visible) { box-shadow: 0 0 0 2px var(--accent); border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -1775,14 +1832,6 @@
       </div>
 
       <div class="controls" id="controls">
-        <div class="progress-wrapper" id="progressWrapper">
-          <div class="progress-bg">
-            <div class="progress-buffer" id="progressBuffer"></div>
-            <div class="progress-fill" id="progressFill"></div>
-          </div>
-          <div class="progress-thumb" id="progressThumb"></div>
-          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
-        </div>
         <div class="ctrl-row">
           <!-- 8.x: переключатель серий — слева/справа от кнопок перемотки у паузы. -->
           <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14.5 7 9.5 12 14.5 17"/></svg></button>
@@ -1838,7 +1887,7 @@
                 <line x1="17" y1="9" x2="23" y2="15"/>
               </svg>
             </button>
-            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100" aria-label="Громкость">
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="200" value="100" aria-label="Громкость" title="Громкость (выше 100% — усиление для тихих фильмов)">
             <div class="volume-tooltip" id="volumeTooltip">100%</div>
           </div>
           <button class="ctrl-btn" id="settingsBtn" title="Настройки" aria-label="Настройки" aria-expanded="false" aria-haspopup="dialog">
@@ -1875,6 +1924,15 @@
               <rect x="6" y="7" width="12" height="10" rx="1"/>
             </svg>
           </button>
+        </div>
+
+        <div class="progress-wrapper" id="progressWrapper">
+          <div class="progress-bg">
+            <div class="progress-buffer" id="progressBuffer"></div>
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-thumb" id="progressThumb"></div>
+          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
         </div>
       </div>
 
@@ -2395,8 +2453,33 @@
   nativeVideo.addEventListener('play', updatePausedClass);
   nativeVideo.addEventListener('pause', updatePausedClass);
   
-  playerContainer.addEventListener('mousemove', () => { showControls(); showLockBtn(); });
-  playerContainer.addEventListener('mouseleave', () => { hideControlsNow(); hideLockBtn(); });
+  // 10.11: два «этапа» показа интерфейса мышью. Мышь ведёт по плееру вдали от
+  // полосы — показываем только полосу перемотки и хронометраж (`peek`); мышь
+  // опускается в нижние 30% — снова все элементы. Только для устройств с курсором.
+  let finePointerMQ = null;
+  try { finePointerMQ = window.matchMedia('(hover: hover) and (pointer: fine)'); }
+  catch (e) { finePointerMQ = null; }
+  function updateMousePeek(e) {
+    if (!finePointerMQ || !finePointerMQ.matches) return;
+    if (playerContainer.classList.contains('embed-mode')) {
+      playerContainer.classList.remove('peek');
+      return;
+    }
+    const rect = playerContainer.getBoundingClientRect();
+    if (!rect.height) return;
+    const fromBottom = (rect.bottom - e.clientY) / rect.height;
+    playerContainer.classList.toggle('peek', fromBottom > 0.30);
+  }
+  playerContainer.addEventListener('mousemove', (e) => {
+    updateMousePeek(e);
+    showControls();
+    showLockBtn();
+  });
+  playerContainer.addEventListener('mouseleave', () => {
+    playerContainer.classList.remove('peek');
+    hideControlsNow();
+    hideLockBtn();
+  });
   controlsEl.addEventListener('mouseenter', () => {
     clearTimeout(controlsHideTimer);
     if (!playerContainer.classList.contains('embed-mode')) {
@@ -2656,8 +2739,46 @@
   skipBackBtn.addEventListener('click', () => skipBy(-currentStep));
   skipFwdBtn.addEventListener('click', () => skipBy(currentStep));
 
+  // ============================================================
+  //  Volume (10.11: 0…200%)
+  // ============================================================
+  // 0…100% — обычная громкость элемента; 100…200% — усиление через Web Audio
+  // (для тихих фильмов). Граф создаём ЛЕНИВО и только для «безопасных» потоков
+  // (MSE/`blob:` или свой источник): `createMediaElementSource` на чужом потоке
+  // без CORS навсегда отдаёт тишину. Усиление недоступно — упираемся в 100%.
+  const VOLUME_MAX = 2;
+  let volumeLevel = 1;      // положение «громкости»: 0…2
+  let boostWarned = false;
+  let audioCtx = null, mediaSrcNode = null, gainNode = null;
+
+  function boostSafe() {
+    const src = nativeVideo.currentSrc || nativeVideo.src || '';
+    if (!src) return false;
+    if (src.indexOf('blob:') === 0) return true;   // hls.js (MSE) — CORS не «пачкает»
+    try { return new URL(src, location.href).origin === location.origin; }
+    catch (e) { return false; }
+  }
+  function ensureGainGraph() {
+    if (gainNode) return true;
+    if (!boostSafe()) return false;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return false;
+      if (!audioCtx) audioCtx = new Ctx();
+      mediaSrcNode = audioCtx.createMediaElementSource(nativeVideo);
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 1;
+      mediaSrcNode.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return true;
+    } catch (e) {
+      gainNode = null; mediaSrcNode = null;
+      return false;
+    }
+  }
   function updateVolumeIcon() {
-    const v = nativeVideo.muted ? 0 : nativeVideo.volume;
+    const v = nativeVideo.muted ? 0 : volumeLevel;
     const muted = v === 0;
     iconVol.classList.toggle('hidden', muted);
     iconMute.classList.toggle('hidden', !muted);
@@ -2677,24 +2798,54 @@
     // 8.x-fix: значение берём из плеера, а не из ползунка — при переключении M
     // `volumechange` ещё не успевает обновить `slider.value`, из-за чего проценты
     // показывались наоборот (mute → 100%, unmute → 0%).
-    const v = nativeVideo.muted ? 0 : nativeVideo.volume;
+    const v = nativeVideo.muted ? 0 : volumeLevel;
+    const frac = Math.min(1, v / VOLUME_MAX);
     const rect = volumeSlider.getBoundingClientRect();
     const wrapRect = $('volumeWrap').getBoundingClientRect();
     // 8.x-fix: центр кружка отстоит от края ползунка на радиус — без этой поправки
     // подсказка уезжает в сторону (0% — левее кружка, 100% — правее).
     const tw = volumeThumbWidth();
-    const center = rect.left + tw / 2 + (rect.width - tw) * v;
+    const center = rect.left + tw / 2 + (rect.width - tw) * frac;
     volumeTooltip.style.left = (center - wrapRect.left) + 'px';
     volumeTooltip.textContent = Math.round(v * 100) + '%';
     // 8.x-fix: подсказка — СРАЗУ НАД ползунком громкости (как в красной рамке),
     // а не над полосой перемотки: `bottom` отсчитываем от низа обёртки до верха ползунка.
     volumeTooltip.style.bottom = (wrapRect.bottom - rect.top + 6) + 'px';
   }
-  volumeSlider.addEventListener('input', () => {
-    const v = volumeSlider.value / 100;
-    nativeVideo.muted = v === 0;
-    nativeVideo.volume = v;
+  // Ползунок/значок/подсветка — из уровня (а не из громкости элемента, она ≤ 1).
+  function syncVolumeUI() {
+    volumeSlider.value = Math.round(volumeLevel * 100);
+    $('volumeWrap').classList.toggle('boosted', volumeLevel > 1);
     updateVolumeIcon();
+  }
+  // Единая точка установки громкости: 0…2. Возвращает фактический уровень.
+  //   opts.defer  — не создавать граф сейчас (нет источника) — оставить «на потом»;
+  //   opts.silent — не показывать предупреждение о недоступности усиления.
+  function applyVolumeLevel(level, opts) {
+    opts = opts || {};
+    let v = Number(level);
+    if (!isFinite(v)) v = 0;
+    v = Math.max(0, Math.min(VOLUME_MAX, v));
+    if (v > 1 && !opts.defer && !ensureGainGraph()) {
+      v = 1;
+      if (!opts.silent && !boostWarned) {
+        boostWarned = true;
+        showToast('Усиление выше 100% для этого потока недоступно');
+      }
+    }
+    volumeLevel = v;
+    nativeVideo.muted = v === 0;
+    nativeVideo.volume = Math.min(1, v);
+    if (gainNode) gainNode.gain.value = Math.max(1, v);
+    syncVolumeUI();
+    return v;
+  }
+  // Источник загрузился — если усиление было сохранено (>100%), включаем граф.
+  nativeVideo.addEventListener('playing', () => {
+    if (volumeLevel > 1) applyVolumeLevel(volumeLevel);
+  });
+  volumeSlider.addEventListener('input', () => {
+    applyVolumeLevel(volumeSlider.value / 100);
     updateVolumeTooltip();
     volumeTooltip.classList.add('visible');
     saveSettings();
@@ -2706,20 +2857,25 @@
     if (!volumeSlider.matches(':active')) volumeTooltip.classList.remove('visible');
   });
   muteBtn.addEventListener('click', () => {
-    if (nativeVideo.muted || nativeVideo.volume === 0) {
+    if (nativeVideo.muted || volumeLevel === 0) {
       nativeVideo.muted = false;
-      if (nativeVideo.volume === 0) nativeVideo.volume = 1;
+      if (volumeLevel === 0) applyVolumeLevel(1); else updateVolumeIcon();
     } else {
       nativeVideo.muted = true;
+      updateVolumeIcon();
     }
-    updateVolumeIcon();
     updateVolumeTooltip();
     volumeTooltip.classList.add('visible');
     setTimeout(() => volumeTooltip.classList.remove('visible'), 1000);
     saveSettings();
   });
+  // Громкость элемента всегда ≤ 1; уровень усиления (`volumeLevel`) не сбрасываем.
   nativeVideo.addEventListener('volumechange', () => {
-    volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
+    if (!nativeVideo.muted && !gainNode && volumeLevel <= 1 &&
+        Math.abs(nativeVideo.volume - volumeLevel) > 0.001) {
+      volumeLevel = nativeVideo.volume;      // внешняя смена (системные клавиши)
+    }
+    volumeSlider.value = Math.round(volumeLevel * 100);
     updateVolumeIcon();
   });
 
@@ -3811,12 +3967,13 @@
   }
   // 10.2: HUD громкости/яркости при вертикальном свайпе по бокам.
   let dragHudTimer = null;
-  function showDragHud(kind, value) {
+  function showDragHud(kind, value, max) {
     if (!dragHud) return;
-    const pct = Math.max(0, Math.min(1, value));
+    const m = max || 1;
+    const pct = Math.max(0, Math.min(1, value / m));
     dragHudVol.classList.toggle('hidden', kind !== 'vol');
     dragHudBright.classList.toggle('hidden', kind !== 'bright');
-    dragHudText.textContent = Math.round(pct * 100) + '%';
+    dragHudText.textContent = Math.round(value * 100) + '%';
     dragHudBar.style.width = (pct * 100) + '%';
     dragHud.classList.remove('hidden');
     clearTimeout(dragHudTimer);
@@ -3827,10 +3984,9 @@
     dragHudTimer = setTimeout(() => dragHud.classList.add('hidden'), 250);
   }
   // 10.2: громкость из жеста (muted сбрасываем, если появился звук).
+  // 10.11: уровень 0…2 — выше 100% уходит в усиление (`applyVolumeLevel`).
   function setVolumeFromGesture(v) {
-    v = Math.min(1, Math.max(0, v));
-    nativeVideo.muted = v === 0;
-    nativeVideo.volume = v;   // `volumechange` синхронизирует ползунок и иконку
+    applyVolumeLevel(v);
   }
   // 10.3: вспышка «±шаг» при двойном тапе по бокам.
   let seekFlashTimer = null;
@@ -3971,7 +4127,7 @@
       // 10.2: ось фиксируем на первом значимом движении.
       pointerDown.axis = Math.abs(dy) > Math.abs(dx) ? 'v' : 'h';
       if (pointerDown.axis === 'v') {
-        pointerDown.startVolume = nativeVideo.muted ? 0 : nativeVideo.volume;
+        pointerDown.startVolume = volumeLevel;   // 10.11: уровень 0…2
         pointerDown.startBright = brightness;
       }
     }
@@ -3984,8 +4140,9 @@
         applyBrightness(pointerDown.startBright + delta);
         showDragHud('bright', brightness);
       } else {
-        setVolumeFromGesture(pointerDown.startVolume + delta);
-        showDragHud('vol', nativeVideo.muted ? 0 : nativeVideo.volume);
+        // 10.11: полная протяжка по высоте меняет весь диапазон 0…200%.
+        setVolumeFromGesture(pointerDown.startVolume + delta * VOLUME_MAX);
+        showDragHud('vol', volumeLevel, VOLUME_MAX);
       }
       return;
     }
@@ -4228,7 +4385,8 @@
     store.write('settings', {
       speed: userSpeed,
       step: currentStep,
-      volume: nativeVideo.volume,
+      // 10.11: уровень 0…2 (выше 100% — усиление, включается после старта потока).
+      volume: volumeLevel,
       muted: nativeVideo.muted,
       ambient: ambientToggle.checked,
       autonext: autoNext,
@@ -4247,11 +4405,11 @@
     if (!s || typeof s !== 'object') return;
     if (typeof s.step === 'number') setStep(s.step);
     if (typeof s.speed === 'number') applyRate(s.speed);
-    if (typeof s.volume === 'number') nativeVideo.volume = Math.min(1, Math.max(0, s.volume));
+    // 10.11: уровень 0…2. Усиление «на потом» — граф соберём на `playing`.
+    if (typeof s.volume === 'number') applyVolumeLevel(s.volume, { silent: true, defer: true });
     if (typeof s.muted === 'boolean') nativeVideo.muted = s.muted;
     // Не полагаемся на событие `volumechange` — синхронизируем ползунок явно.
-    volumeSlider.value = Math.round((nativeVideo.muted ? 0 : nativeVideo.volume) * 100);
-    updateVolumeIcon();
+    syncVolumeUI();
     if (s.ambient === true) ambientToggle.checked = true;
     else if (s.ambient === false) ambientToggle.checked = false;
     // Шаг 5.1: автопереход серий (по умолчанию включён).
