@@ -2282,6 +2282,9 @@
   let isLocked = false;
   let isPausedByDrag = false;
   let controlsHideTimer = null;
+  // 10.11: указатель сейчас над плеером; «заглядывание» живёт только пока это так.
+  let pointerInPlayer = false;
+  function clearPeek() { playerContainer.classList.remove('peek'); }
   let toastTimer = null;
   let pointerDown = null;
   let pointerHoldTimer = null;   // 10.10: удержание у края — «заряд» ускорения
@@ -2440,6 +2443,9 @@
   // ============================================================
   function showControls() {
     if (isLocked || playerContainer.classList.contains('embed-mode')) return;
+    // 10.11: интерфейс показан, а указатель вне плеера — «заглядывание» не держим
+    // (иначе после паузы или старта остаётся «только хронометраж»).
+    if (!pointerInPlayer) clearPeek();
     playerContainer.classList.add('controls-visible');
     // 10.6-fix: активный «Театр/Фокус» подсвечивается надёжно — состояние кнопки
     // переустанавливаем при каждом показе интерфейса (иконка теперь ещё и с
@@ -2448,18 +2454,25 @@
     clearTimeout(controlsHideTimer);
     if (!nativeVideo.paused && !settingsOpen && !pointerDown) {
       controlsHideTimer = setTimeout(() => {
-        if (!settingsOpen && !pointerDown) playerContainer.classList.remove('controls-visible');
+        if (!settingsOpen && !pointerDown) {
+          clearPeek();   // 10.11: интерфейс ушёл — «заглядывание» тоже сбрасываем
+          playerContainer.classList.remove('controls-visible');
+        }
       }, 2500);
     }
   }
   function hideControlsNow() {
     clearTimeout(controlsHideTimer);
     if (!nativeVideo.paused && !settingsOpen && !pointerDown) {
+      clearPeek();   // 10.11
       playerContainer.classList.remove('controls-visible');
     }
   }
   function updatePausedClass() {
     playerContainer.classList.toggle('paused', nativeVideo.paused);
+    // 10.11: пауза показывает интерфейс; если указатель вне плеера — показываем
+    // его целиком, а не «огрызок» из полосы и хронометража.
+    if (!pointerInPlayer) clearPeek();
     if (!nativeVideo.paused) showControls();
   }
   nativeVideo.addEventListener('play', updatePausedClass);
@@ -2500,14 +2513,34 @@
     }
   }
   playerContainer.addEventListener('mousemove', (e) => {
+    pointerInPlayer = true;
     updateMousePeek(e);
     showControls();
     showLockBtn();
   });
   playerContainer.addEventListener('mouseleave', () => {
-    playerContainer.classList.remove('peek');
+    pointerInPlayer = false;
+    clearPeek();
     hideControlsNow();
     hideLockBtn();
+  });
+  // 10.11: указатель может уйти «мимо» mouseleave (например, под курсором был
+  // закреплённый потомок) — как только он оказался вне плеера, сбрасываем
+  // «заглядывание», чтобы не оставался один хронометраж.
+  document.addEventListener('mousemove', (e) => {
+    if (!playerContainer.classList.contains('peek')) return;
+    const t = e.target;
+    if (!t || !playerContainer.contains(t)) {
+      pointerInPlayer = false;
+      clearPeek();
+    }
+  });
+  // 10.11: курсор ушёл за пределы окна — тоже сбрасываем «заглядывание».
+  document.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget) {
+      pointerInPlayer = false;
+      clearPeek();
+    }
   });
   controlsEl.addEventListener('mouseenter', () => {
     clearTimeout(controlsHideTimer);
