@@ -861,8 +861,8 @@
     bottom: 0;
     left: 0;
     right: 0;
-    /* 10.11: нижний отступ уменьшен — полоса перемотки переехала ПОД кнопки
-       (она теперь последний элемент) и сидит у самого низа. */
+    /* 10.11: нижний отступ уменьшен — весь блок управления (и полоса в нём)
+       сидит чуть ниже, ближе к краю. Полоса по-прежнему НАД кнопками. */
     padding: 0 20px 12px;
     background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
     display: flex;
@@ -884,15 +884,20 @@
   }
 
   /* 10.11: два «этапа» появления интерфейса мышью. Мышь ведёт по плееру вдали
-     от полосы — показываем только полосу перемотки и хронометраж (класс `peek`);
-     мышь опускается в нижние 30% — снова все кнопки. Кнопки не убираем из
-     потока (гасим через opacity) — строка не «дёргается», полоса стоит на месте.
-     Только для устройств с курсором: на тач `peek` не ставится. */
+     от полосы — показываем только полосу перемотки и хронометраж (`peek`);
+     мышь опускается в нижние 30% — снова все кнопки, как раньше (полоса над
+     кнопками). Кнопки из потока не убираем (гасим через opacity) — строка не
+     «дёргается». В `peek` полоса и строка меняются местами сдвигом (`transform`):
+     полоса «поднимается» обратно над кнопками, когда мышь подходит к низу.
+     Сдвиг считает JS (`--peek-*`) по фактическим высотам. Только для устройств с
+     курсором: на тач `peek` не ставится. */
   .ctrl-row > .ctrl-btn,
   .ctrl-row > .volume-wrap,
   .ctrl-row > .spacer,
   .player-container .lock-btn,
   .player-container .dl-btn { transition: opacity 0.18s ease; }
+  .controls > .progress-wrapper,
+  .controls > .ctrl-row { transition: transform 0.22s ease; }
   .player-container.peek .ctrl-row > .ctrl-btn,
   .player-container.peek .ctrl-row > .volume-wrap,
   .player-container.peek .ctrl-row > .spacer,
@@ -900,6 +905,12 @@
   .player-container.peek .dl-btn {
     opacity: 0 !important;
     pointer-events: none;
+  }
+  .player-container.peek .controls > .progress-wrapper {
+    transform: translateY(var(--peek-bar-shift, 0px));
+  }
+  .player-container.peek .controls > .ctrl-row {
+    transform: translateY(var(--peek-row-shift, 0px));
   }
 
   /* Progress Bar */
@@ -1832,6 +1843,15 @@
       </div>
 
       <div class="controls" id="controls">
+        <div class="progress-wrapper" id="progressWrapper">
+          <div class="progress-bg">
+            <div class="progress-buffer" id="progressBuffer"></div>
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-thumb" id="progressThumb"></div>
+          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
+        </div>
+
         <div class="ctrl-row">
           <!-- 8.x: переключатель серий — слева/справа от кнопок перемотки у паузы. -->
           <button class="ctrl-btn ep-nav-btn hidden" id="prevEpBtn" title="Предыдущая серия (Shift+← / P)" aria-label="Предыдущая серия"><svg class="ep-nav-dot" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><svg class="ep-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14.5 7 9.5 12 14.5 17"/></svg></button>
@@ -1924,15 +1944,6 @@
               <rect x="6" y="7" width="12" height="10" rx="1"/>
             </svg>
           </button>
-        </div>
-
-        <div class="progress-wrapper" id="progressWrapper">
-          <div class="progress-bg">
-            <div class="progress-buffer" id="progressBuffer"></div>
-            <div class="progress-fill" id="progressFill"></div>
-          </div>
-          <div class="progress-thumb" id="progressThumb"></div>
-          <input type="range" class="progress-input" id="progressInput" min="0" max="1000" value="0" aria-label="Позиция воспроизведения">
         </div>
       </div>
 
@@ -2186,6 +2197,7 @@
   const autoNextToggle   = $('autoNextToggle');
   const controlsEl       = $('controls');
   const progressWrapper  = $('progressWrapper');
+  const ctrlRowEl        = controlsEl.querySelector('.ctrl-row');   // 10.11
   const progressBuffer   = $('progressBuffer');
   const progressFill     = $('progressFill');
   const progressThumb    = $('progressThumb');
@@ -2455,10 +2467,23 @@
   
   // 10.11: два «этапа» показа интерфейса мышью. Мышь ведёт по плееру вдали от
   // полосы — показываем только полосу перемотки и хронометраж (`peek`); мышь
-  // опускается в нижние 30% — снова все элементы. Только для устройств с курсором.
+  // опускается в нижние 30% — снова все элементы, и полоса «поднимается» назад
+  // над кнопками. Только для устройств с курсором.
   let finePointerMQ = null;
   try { finePointerMQ = window.matchMedia('(hover: hover) and (pointer: fine)'); }
   catch (e) { finePointerMQ = null; }
+  // В `peek` полоса и строка кнопок меняются местами сдвигом: считаем сдвиг по
+  // фактическим высотам (на разной ширине кнопки разной высоты) и кладём в CSS.
+  function syncPeekShift() {
+    if (!controlsEl || !progressWrapper || !ctrlRowEl) return;
+    const gap = parseFloat(getComputedStyle(controlsEl).rowGap) || 0;
+    const barH = progressWrapper.offsetHeight;
+    const rowH = ctrlRowEl.offsetHeight;
+    controlsEl.style.setProperty('--peek-bar-shift', (rowH + gap) + 'px');
+    controlsEl.style.setProperty('--peek-row-shift', (-(barH + gap)) + 'px');
+  }
+  syncPeekShift();
+  window.addEventListener('resize', syncPeekShift);
   function updateMousePeek(e) {
     if (!finePointerMQ || !finePointerMQ.matches) return;
     if (playerContainer.classList.contains('embed-mode')) {
@@ -2468,7 +2493,11 @@
     const rect = playerContainer.getBoundingClientRect();
     if (!rect.height) return;
     const fromBottom = (rect.bottom - e.clientY) / rect.height;
-    playerContainer.classList.toggle('peek', fromBottom > 0.30);
+    const wantPeek = fromBottom > 0.30;
+    if (wantPeek !== playerContainer.classList.contains('peek')) {
+      if (wantPeek) syncPeekShift();
+      playerContainer.classList.toggle('peek', wantPeek);
+    }
   }
   playerContainer.addEventListener('mousemove', (e) => {
     updateMousePeek(e);
