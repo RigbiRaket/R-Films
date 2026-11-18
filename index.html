@@ -1177,32 +1177,36 @@
   .icon-vol .vol-arc.on,
   .icon-vol .vol-boost.on { opacity: 1; }
   .icon-vol .vol-boost { stroke: var(--accent); }
-  /* 10.12: на ПК (есть курсор) в строке стоит только значок; место под ползунок
-     зарезервировано справа (строка не сдвигается), сам ползунок выезжает при
-     наведении на значок и живёт, пока указатель внутри блока громкости. */
+  /* 10.14: по умолчанию в строке только значок — место под ползунок больше не
+     резервируется (раньше справа всегда зияла «дыра» 74 px). При наведении на
+     значок дорожка выезжает справа и становится частью строки: она раздвигает
+     соседей (дискета уезжает влево), наложения на настройки нет. */
   @media (hover: hover) and (pointer: fine) {
-    .volume-wrap {
-      width: 112px;
-      justify-content: flex-start;
-    }
+    .volume-wrap { gap: 0; }
     .volume-slider {
-      position: absolute;
-      /* 4 px от края значка — ближе, чем расстояние между кнопками (6 px). */
-      left: 42px;
-      top: 50%;
-      width: 70px;
+      width: 0;
+      min-width: 0;
+      flex: 0 0 auto;
       margin: 0;
-      transform: translate(-6px, -50%);
+      padding: 0;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.15s ease, transform 0.18s ease;
-      z-index: 3;
+      transition: width 0.18s ease, margin-left 0.18s ease, opacity 0.15s ease;
     }
-    .volume-wrap.vol-open .volume-slider,
-    .volume-wrap:has(:focus-visible) .volume-slider {
+    .volume-wrap:hover .volume-slider,
+    .volume-wrap.vol-open .volume-slider {
+      width: 70px;
+      margin-left: 4px;
       opacity: 1;
       pointer-events: auto;
-      transform: translate(0, -50%);
+    }
+    /* фокус с клавиатуры — тот же показ (отдельным правилом: если браузер не
+       понимает `:has`, из-за одного селектора не пропадёт весь список) */
+    .volume-wrap:has(:focus-visible) .volume-slider {
+      width: 70px;
+      margin-left: 4px;
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 
@@ -1858,11 +1862,11 @@
       </a>
 
       <button class="big-play hidden" id="bigPlay" title="Воспроизвести" aria-label="Воспроизвести">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/><circle class="p-dot" cx="12.3" cy="12" r="2.1"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/><circle class="p-dot" cx="13.5" cy="12" r="2.1"/></svg>
       </button>
 
       <div class="center-status" id="centerStatus" aria-hidden="true">
-        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/><circle class="p-dot" cx="11.5" cy="12" r="2"/></svg>
+        <svg class="cs-play hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7z"/><circle class="p-dot" cx="12" cy="12" r="2"/></svg>
         <svg class="cs-pause hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/><circle class="p-dot" cx="12" cy="12" r="1.9"/></svg>
       </div>
 
@@ -1952,7 +1956,7 @@
           <button class="ctrl-btn play-btn" id="playBtn" title="Пуск/пауза (Space)" aria-label="Воспроизвести">
             <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
-              <circle class="p-dot" cx="12.3" cy="12" r="2.1"/>
+              <circle class="p-dot" cx="13.5" cy="12" r="2.1"/>
             </svg>
             <svg class="icon-pause hidden" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 4h4v16H6zm8 0h4v16h-4z"/>
